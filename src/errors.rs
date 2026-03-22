@@ -2,12 +2,24 @@ use std::path::PathBuf;
 use std::process::ExitStatus;
 use thiserror::Error;
 
-pub type ActionResult<T> = Result<T, ActionError>;
+pub type JaoResult<T> = Result<T, JaoError>;
 
 #[derive(Debug, Error)]
-pub enum ActionError {
+pub enum JaoError {
+    #[error("unable to determine user storage directory")]
+    StorageDirUnavailable,
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    TomlDeserialize(#[from] toml::de::Error),
+
+    #[error(transparent)]
+    TomlSerialize(#[from] toml::ser::Error),
+
+    #[error("invalid trustfile path: {path}")]
+    InvalidTrustfilePath { path: PathBuf },
 
     #[error("script {script_name} not found")]
     ScriptNotFound { script_name: String },

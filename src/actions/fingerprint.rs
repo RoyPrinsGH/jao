@@ -1,9 +1,9 @@
-use crate::errors::ActionResult;
+use crate::errors::JaoResult;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 
-fn fingerprint_file(path: impl AsRef<Path>) -> ActionResult<String> {
+fn fingerprint_file(path: impl AsRef<Path>) -> JaoResult<String> {
     let canonical_path = fs::canonicalize(path)?;
     let file_contents = fs::read(&canonical_path)?;
 
@@ -16,7 +16,7 @@ fn fingerprint_file(path: impl AsRef<Path>) -> ActionResult<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-pub fn fingerprint_script(script_path: impl AsRef<Path>) -> ActionResult<()> {
+pub fn fingerprint_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     let fingerprint = fingerprint_file(script_path)?;
 
     println!("{fingerprint}");

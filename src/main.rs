@@ -1,9 +1,10 @@
 use clap::{Parser, error::ErrorKind};
 use std::path::PathBuf;
 
-use crate::errors::ActionError;
+use crate::errors::JaoError;
 
 mod actions;
+mod config;
 mod errors;
 mod help_screen;
 mod script_discovery;
@@ -48,7 +49,9 @@ fn main() {
     };
 }
 
-fn run_cli(cli: Cli) -> errors::ActionResult<()> {
+fn run_cli(cli: Cli) -> errors::JaoResult<()> {
+    let _config = config::load_or_init()?;
+
     let cwd = std::env::current_dir()?;
 
     enum CommandAction {
@@ -59,7 +62,7 @@ fn run_cli(cli: Cli) -> errors::ActionResult<()> {
     }
 
     let resolve = |parts: Vec<String>| {
-        script_discovery::resolve_script(&cwd, &parts).ok_or_else(|| ActionError::ScriptNotFound {
+        script_discovery::resolve_script(&cwd, &parts).ok_or_else(|| JaoError::ScriptNotFound {
             script_name: parts.join("."),
         })
     };

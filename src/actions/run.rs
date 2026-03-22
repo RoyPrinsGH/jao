@@ -1,20 +1,20 @@
-use crate::errors::{ActionError, ActionResult};
+use crate::errors::{JaoError, JaoResult};
 
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-pub fn run_script(script_path: impl AsRef<Path>) -> ActionResult<()> {
+pub fn run_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     let script_path = script_path.as_ref();
 
     let script_dir = script_path
         .parent()
-        .ok_or_else(|| ActionError::ScriptHasNoParent {
+        .ok_or_else(|| JaoError::ScriptHasNoParent {
             path: script_path.to_path_buf(),
         })?;
 
     let script_file = script_path
         .file_name()
-        .ok_or_else(|| ActionError::ScriptHasNoFileName {
+        .ok_or_else(|| JaoError::ScriptHasNoFileName {
             path: script_path.to_path_buf(),
         })?;
 
@@ -40,6 +40,6 @@ pub fn run_script(script_path: impl AsRef<Path>) -> ActionResult<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(ActionError::ScriptFailed { status })
+        Err(JaoError::ScriptFailed { status })
     }
 }
