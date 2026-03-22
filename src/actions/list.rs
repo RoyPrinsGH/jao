@@ -16,3 +16,13 @@ pub fn list_scripts_in(root: impl AsRef<Path>, context: &JaoContext) -> JaoResul
 
     Ok(())
 }
+
+pub fn list_script_paths_in(root: impl AsRef<Path>) -> JaoResult<()> {
+    let mut out = io::stdout().lock();
+
+    for script_path in script_discovery::enumerate_scripts_in(root) {
+        writeln!(out, "{}", script_path.display())?;
+    }
+
+    Ok(())
+}

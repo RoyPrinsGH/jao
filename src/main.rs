@@ -17,10 +17,20 @@ mod trust;
 #[command(about = "Discover and run workspace scripts")]
 #[command(arg_required_else_help = true)]
 struct Cli {
+    /// CI mode: non-interactive and no config/manifest initialization.
+    #[arg(long)]
+    ci: bool,
+
     /// Resolve script command and print SHA-256 of canonical path + file contents.
     #[arg(long, value_name = "SCRIPT_COMMAND", num_args = 1..)]
     #[arg(conflicts_with_all = ["list", "script_command"])]
     fingerprint: Option<Vec<String>>,
+
+    /// Required script fingerprint for CI run mode.
+    #[arg(long, value_name = "FINGERPRINT")]
+    #[arg(requires_all = ["ci", "script_command"])]
+    #[arg(conflicts_with_all = ["list", "fingerprint"])]
+    require_fingerprint: Option<String>,
 
     /// List discovered scripts for this OS
     #[arg(long, conflicts_with = "script_command")]
@@ -58,14 +68,18 @@ fn main() {
 }
 
 fn run_cli(cli: Cli) -> errors::JaoResult<()> {
-    let mut context = config::load_or_init()?;
-
     let cwd = std::env::current_dir()?;
 
     enum CommandAction {
-        List,
+        List {
+            ci: bool,
+        },
         Fingerprint(PathBuf),
-        Run(PathBuf),
+        Run {
+            script_path: PathBuf,
+            ci: bool,
+            required_fingerprint: Option<String>,
+        },
         NoOp,
     }
 
@@ -76,16 +90,37 @@ fn run_cli(cli: Cli) -> errors::JaoResult<()> {
     };
 
     let action = match (cli.list, cli.fingerprint, cli.script_command) {
-        (true, _, _) => CommandAction::List,
+        (true, _, _) => CommandAction::List { ci: cli.ci },
         (false, Some(parts), _) => CommandAction::Fingerprint(resolve(parts)?),
-        (false, None, parts) if !parts.is_empty() => CommandAction::Run(resolve(parts)?),
+        (false, None, parts) if !parts.is_empty() => CommandAction::Run {
+            script_path: resolve(parts)?,
+            ci: cli.ci,
+            required_fingerprint: cli.require_fingerprint,
+        },
         _ => CommandAction::NoOp,
     };
 
     match action {
-        CommandAction::List => actions::list_scripts_in(&cwd, &context)?,
+        CommandAction::List { ci: true } => actions::list_script_paths_in(&cwd)?,
+        CommandAction::List { ci: false } => {
+            let context = config::load_or_init()?;
+            actions::list_scripts_in(&cwd, &context)?;
+        }
         CommandAction::Fingerprint(script_path) => actions::fingerprint_script(script_path)?,
-        CommandAction::Run(script_path) => actions::run_script(script_path, &mut context)?,
+        CommandAction::Run {
+            script_path,
+            ci: true,
+            required_fingerprint: Some(required_fingerprint),
+        } => actions::run_script_ci(script_path, &required_fingerprint)?,
+        CommandAction::Run { ci: true, .. } => return Err(JaoError::CiRunRequiresFingerprint),
+        CommandAction::Run {
+            script_path,
+            ci: false,
+            ..
+        } => {
+            let mut context = config::load_or_init()?;
+            actions::run_script(script_path, &mut context)?;
+        }
         CommandAction::NoOp => {}
     }
 

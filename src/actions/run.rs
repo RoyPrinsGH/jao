@@ -52,6 +52,40 @@ pub fn run_script(script_path: impl AsRef<Path>, context: &mut JaoContext) -> Ja
         }
     }
 
+    execute_script(script_path)
+}
+
+pub fn run_script_ci(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
+    let script_path = script_path.as_ref();
+    let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
+
+    let (canonical_path, actual_fingerprint) = trust::fingerprint_file(script_path)?;
+
+    if actual_fingerprint != required_fingerprint {
+        return Err(JaoError::FingerprintMismatch {
+            path: canonical_path,
+            expected: required_fingerprint,
+            actual: actual_fingerprint,
+        });
+    }
+
+    execute_script(script_path)
+}
+
+fn normalize_required_fingerprint(fingerprint: &str) -> JaoResult<String> {
+    let normalized = fingerprint.trim().to_ascii_lowercase();
+    let is_valid = normalized.len() == 64 && normalized.chars().all(|ch| ch.is_ascii_hexdigit());
+
+    if is_valid {
+        Ok(normalized)
+    } else {
+        Err(JaoError::InvalidRequiredFingerprint {
+            fingerprint: fingerprint.to_string(),
+        })
+    }
+}
+
+fn execute_script(script_path: &Path) -> JaoResult<()> {
     let script_dir = script_path
         .parent()
         .ok_or_else(|| JaoError::ScriptHasNoParent {

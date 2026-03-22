@@ -36,6 +36,19 @@ pub enum JaoError {
     #[error("unknown script trust requires interactive confirmation: {path}")]
     UnknownScriptNonInteractive { path: PathBuf },
 
+    #[error("--ci run requires --require-fingerprint <FINGERPRINT>")]
+    CiRunRequiresFingerprint,
+
+    #[error("invalid --require-fingerprint value (expected 64 hex chars): {fingerprint}")]
+    InvalidRequiredFingerprint { fingerprint: String },
+
+    #[error("fingerprint mismatch for {path}: expected {expected}, got {actual}")]
+    FingerprintMismatch {
+        path: PathBuf,
+        expected: String,
+        actual: String,
+    },
+
     #[error("script was not trusted by user: {path}")]
     ScriptNotTrusted { path: PathBuf },
 }

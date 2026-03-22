@@ -15,8 +15,10 @@ pub fn print_help() {
         println!();
         section("USAGE");
         line("  jao --list");
+        line("  jao --ci --list");
         line("  jao --fingerprint <SCRIPT_COMMAND>...");
         line("  jao <SCRIPT_COMMAND>...");
+        line("  jao --ci --require-fingerprint <FINGERPRINT> <SCRIPT_COMMAND>...");
         println!();
 
         section("OPTIONS");
@@ -28,6 +30,14 @@ pub fn print_help() {
         option(
             "      --fingerprint <SCRIPT_COMMAND>...",
             "Resolve a script command, then print SHA-256 of canonical path + file contents",
+        );
+        option(
+            "      --ci",
+            "Enable CI mode (non-interactive, no config/manifest I/O)",
+        );
+        option(
+            "      --require-fingerprint <FINGERPRINT>",
+            "In CI mode, require exact script fingerprint before running",
         );
         option("  -V, --version", "Print version");
         println!();
@@ -45,6 +55,9 @@ pub fn print_help() {
         line("  Modified scripts prompt: re-trust and run? [y/N]");
         line("  In non-interactive mode, unknown/modified scripts fail.");
         line("  --list prints trust state labels: trusted, unknown, or modified.");
+        line("  --ci skips config/manifest creation and never prompts.");
+        line("  --ci run requires --require-fingerprint <FINGERPRINT>.");
+        line("  --ci --list prints script paths only (no trust labels).");
         println!();
 
         section("EXAMPLES");
@@ -52,6 +65,10 @@ pub fn print_help() {
         line("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         example("  jao --list");
         line("    Output format: <trust-state> <script-path>.");
+        example("  jao --ci --list");
+        line("    Output format: <script-path>.");
+        example("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
+        line("    Run only if resolved script fingerprint matches exactly.");
         example("  jao test");
         line("    Run test.sh / test.bat if found.");
         example("  jao deploy api prod");
@@ -64,8 +81,10 @@ pub fn print_help() {
         println!();
         println!("USAGE:");
         println!("  jao --list");
+        println!("  jao --ci --list");
         println!("  jao --fingerprint <SCRIPT_COMMAND>...");
         println!("  jao <SCRIPT_COMMAND>...");
+        println!("  jao --ci --require-fingerprint <FINGERPRINT> <SCRIPT_COMMAND>...");
         println!();
         println!("OPTIONS:");
         option_plain("  -h, --help", "Show this help screen");
@@ -76,6 +95,14 @@ pub fn print_help() {
         option_plain(
             "      --fingerprint <SCRIPT_COMMAND>...",
             "Resolve a script command, then print SHA-256 of canonical path + file contents",
+        );
+        option_plain(
+            "      --ci",
+            "Enable CI mode (non-interactive, no config/manifest I/O)",
+        );
+        option_plain(
+            "      --require-fingerprint <FINGERPRINT>",
+            "In CI mode, require exact script fingerprint before running",
         );
         option_plain("  -V, --version", "Print version");
         println!();
@@ -93,12 +120,19 @@ pub fn print_help() {
         println!("  Modified scripts prompt: re-trust and run? [y/N]");
         println!("  In non-interactive mode, unknown/modified scripts fail.");
         println!("  --list prints trust state labels: trusted, unknown, or modified.");
+        println!("  --ci skips config/manifest creation and never prompts.");
+        println!("  --ci run requires --require-fingerprint <FINGERPRINT>.");
+        println!("  --ci --list prints script paths only (no trust labels).");
         println!();
         println!("EXAMPLES:");
         println!("  jao --fingerprint deploy api prod");
         println!("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         println!("  jao --list");
         println!("    Output format: <trust-state> <script-path>.");
+        println!("  jao --ci --list");
+        println!("    Output format: <script-path>.");
+        println!("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
+        println!("    Run only if resolved script fingerprint matches exactly.");
         println!("  jao test");
         println!("    Run test.sh / test.bat if found.");
         println!("  jao deploy api prod");
