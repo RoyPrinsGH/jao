@@ -2,6 +2,8 @@ use clap::Parser;
 use std::path::PathBuf;
 
 mod actions;
+mod errors;
+mod script_discovery;
 
 #[derive(Debug, Parser)]
 #[command(name = "jao")]
@@ -9,11 +11,14 @@ mod actions;
 #[command(arg_required_else_help = true)]
 struct Cli {
     #[arg(long, value_name = "FILE")]
-    #[arg(conflicts_with = "list")]
+    #[arg(conflicts_with_all = ["list", "script_command"])]
     fingerprint: Option<PathBuf>,
 
-    #[arg(long)]
+    #[arg(long, conflicts_with = "script_command")]
     list: bool,
+
+    #[arg(value_name = "SCRIPT_COMMAND", num_args = 1..)]
+    script_command: Vec<String>,
 }
 
 fn main() {
@@ -23,7 +28,7 @@ fn main() {
     }
 }
 
-fn run_cli() -> std::io::Result<()> {
+fn run_cli() -> errors::ActionResult<()> {
     let cli = Cli::parse();
 
     if let Some(file_path) = cli.fingerprint {
@@ -36,6 +41,11 @@ fn run_cli() -> std::io::Result<()> {
         for script_path in actions::list_scripts(cwd) {
             println!("{}", script_path.display());
         }
+    }
+
+    if !cli.script_command.is_empty() {
+        let cwd = std::env::current_dir()?;
+        actions::run_script(&cli.script_command, cwd)?;
     }
 
     Ok(())

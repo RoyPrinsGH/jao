@@ -7,3 +7,4 @@ edition = "2024"
 clap = { version = "4.6.0", features = ["derive"] }
 jwalk = "0.8"
 sha2 = "0.10"
+thiserror = "2"

@@ -1,8 +1,9 @@
+use crate::errors::ActionResult;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 
-pub fn fingerprint(path: PathBuf) -> std::io::Result<String> {
+pub fn fingerprint(path: PathBuf) -> ActionResult<String> {
     let canonical_path = fs::canonicalize(&path)?;
     let file_contents = fs::read(&canonical_path)?;
 
