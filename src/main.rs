@@ -1,4 +1,5 @@
 use clap::{Parser, error::ErrorKind};
+use std::io::ErrorKind as IoErrorKind;
 use std::path::PathBuf;
 
 use crate::errors::JaoError;
@@ -34,6 +35,12 @@ fn main() {
     match Cli::try_parse() {
         Ok(cli) => {
             if let Err(err) = run_cli(cli) {
+                if let JaoError::Io(io_err) = &err
+                    && io_err.kind() == IoErrorKind::BrokenPipe
+                {
+                    std::process::exit(0);
+                }
+
                 eprintln!("error: {err}");
                 std::process::exit(1);
             }
