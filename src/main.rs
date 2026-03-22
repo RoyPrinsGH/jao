@@ -8,6 +8,7 @@ mod config;
 mod errors;
 mod help_screen;
 mod script_discovery;
+mod trust;
 
 #[derive(Debug, Parser)]
 #[command(name = "jao")]
@@ -50,7 +51,7 @@ fn main() {
 }
 
 fn run_cli(cli: Cli) -> errors::JaoResult<()> {
-    let _config = config::load_or_init()?;
+    let mut context = config::load_or_init()?;
 
     let cwd = std::env::current_dir()?;
 
@@ -75,9 +76,9 @@ fn run_cli(cli: Cli) -> errors::JaoResult<()> {
     };
 
     match action {
-        CommandAction::List => actions::list_scripts_in(&cwd)?,
+        CommandAction::List => actions::list_scripts_in(&cwd, &context)?,
         CommandAction::Fingerprint(script_path) => actions::fingerprint_script(script_path)?,
-        CommandAction::Run(script_path) => actions::run_script(script_path)?,
+        CommandAction::Run(script_path) => actions::run_script(script_path, &mut context)?,
         CommandAction::NoOp => {}
     }
 

@@ -1,4 +1,3 @@
-use crate::errors::{JaoError, JaoResult};
 use home::home_dir;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -6,9 +5,17 @@ use std::fs;
 use std::path::Component;
 use std::path::{Path, PathBuf};
 
+use crate::errors::{JaoError, JaoResult};
+
 const CONFIG_FILE_NAME: &str = "config.toml";
 const DEFAULT_TRUSTFILE_NAME: &str = "jaotrusted.toml";
 const CURRENT_CONFIG_VERSION: u32 = 1;
+
+#[derive(Debug, Clone)]
+pub struct JaoContext {
+    pub config: JaoConfig,
+    pub trusted_manifest: TrustedManifest,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JaoConfig {
@@ -46,19 +53,18 @@ impl Default for JaoConfigFile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrustedScript {
-    pub canonical_path: PathBuf,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TrustedFileRecord {
     pub fingerprint: String,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TrustedManifest {
     #[serde(flatten)]
-    pub scripts: BTreeMap<String, TrustedScript>,
+    pub scripts: BTreeMap<String, TrustedFileRecord>,
 }
 
-pub fn load_or_init() -> JaoResult<JaoConfig> {
+pub fn load_or_init() -> JaoResult<JaoContext> {
     let storage_dir = home_dir()
         .ok_or(JaoError::StorageDirUnavailable)?
         .join(".jao");
@@ -75,18 +81,24 @@ pub fn load_or_init() -> JaoResult<JaoConfig> {
         default_config
     };
 
-    config_file.trustfile = normalize_trustfile_path(&storage_dir, config_file.trustfile)?;
+    let normalized_trustfile =
+        normalize_trustfile_path(&storage_dir, config_file.trustfile.clone())?;
+    let trustfile_changed = normalized_trustfile != config_file.trustfile;
+    config_file.trustfile = normalized_trustfile;
 
-    if config_file.version != CURRENT_CONFIG_VERSION {
+    if trustfile_changed || config_file.version != CURRENT_CONFIG_VERSION {
         config_file.version = CURRENT_CONFIG_VERSION;
         write_config(&config_path, &config_file)?;
     }
 
     let config: JaoConfig = config_file.into();
 
-    let _ = load_or_init_trusted_manifest(&config)?;
+    let trusted_manifest = load_or_init_trusted_manifest(&config)?;
 
-    Ok(config)
+    Ok(JaoContext {
+        config,
+        trusted_manifest,
+    })
 }
 
 pub fn load_or_init_trusted_manifest(config: &JaoConfig) -> JaoResult<TrustedManifest> {
@@ -129,7 +141,7 @@ fn parse_manifest(path: &Path) -> JaoResult<TrustedManifest> {
     Ok(toml::from_str(&content)?)
 }
 
-fn write_manifest(path: &Path, manifest: &TrustedManifest) -> JaoResult<()> {
+pub fn write_manifest(path: &Path, manifest: &TrustedManifest) -> JaoResult<()> {
     let content = toml::to_string_pretty(manifest)?;
     fs::write(path, content)?;
     Ok(())
@@ -137,23 +149,6 @@ fn write_manifest(path: &Path, manifest: &TrustedManifest) -> JaoResult<()> {
 
 fn normalize_trustfile_path(storage_dir: &Path, configured_path: PathBuf) -> JaoResult<PathBuf> {
     let storage_dir = fs::canonicalize(storage_dir)?;
-
-    if configured_path.is_absolute() {
-        let parent = configured_path
-            .parent()
-            .ok_or_else(|| JaoError::InvalidTrustfilePath {
-                path: configured_path.clone(),
-            })
-            .and_then(|path| fs::canonicalize(path).map_err(JaoError::Io))?;
-
-        if !parent.starts_with(&storage_dir) {
-            return Err(JaoError::InvalidTrustfilePath {
-                path: configured_path,
-            });
-        }
-
-        return Ok(configured_path);
-    }
 
     if configured_path
         .components()
@@ -164,5 +159,30 @@ fn normalize_trustfile_path(storage_dir: &Path, configured_path: PathBuf) -> Jao
         });
     }
 
-    Ok(storage_dir.join(configured_path))
+    let candidate = if configured_path.is_absolute() {
+        configured_path
+    } else {
+        storage_dir.join(configured_path)
+    };
+
+    let parent = candidate
+        .parent()
+        .ok_or_else(|| JaoError::InvalidTrustfilePath {
+            path: candidate.clone(),
+        })?;
+
+    fs::create_dir_all(parent)?;
+
+    let canonical_parent = fs::canonicalize(parent)?;
+    if !canonical_parent.starts_with(&storage_dir) {
+        return Err(JaoError::InvalidTrustfilePath { path: candidate });
+    }
+
+    let file_name = candidate
+        .file_name()
+        .ok_or_else(|| JaoError::InvalidTrustfilePath {
+            path: candidate.clone(),
+        })?;
+
+    Ok(canonical_parent.join(file_name))
 }
