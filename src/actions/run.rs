@@ -14,15 +14,15 @@ pub fn run_script(script_path: impl AsRef<Path>, context: &mut JaoContext) -> Ja
 
     if trust_state != ScriptTrustState::Trusted {
         if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
-            return Err(JaoError::UntrustedScriptNonInteractive {
+            return Err(JaoError::UnknownScriptNonInteractive {
                 path: canonical_path,
             });
         }
 
         match trust_state {
-            ScriptTrustState::Untrusted => {
+            ScriptTrustState::Unknown => {
                 eprintln!(
-                    "warning: script is not trusted: {}",
+                    "warning: script trust is unknown: {}",
                     canonical_path.display()
                 );
                 eprint!("trust and run? [y/N]: ");

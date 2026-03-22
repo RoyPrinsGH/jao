@@ -8,7 +8,7 @@ use crate::errors::JaoResult;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScriptTrustState {
     Trusted,
-    Untrusted,
+    Unknown,
     Modified,
 }
 
@@ -16,7 +16,7 @@ impl fmt::Display for ScriptTrustState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = match self {
             ScriptTrustState::Trusted => "trusted",
-            ScriptTrustState::Untrusted => "untrusted",
+            ScriptTrustState::Unknown => "unknown",
             ScriptTrustState::Modified => "modified",
         };
 
@@ -31,7 +31,7 @@ pub fn get_script_trust(
     let (key, record) = build_trusted_record_for_file(script_path.as_ref())?;
 
     match manifest.scripts.get(&key) {
-        None => Ok(ScriptTrustState::Untrusted),
+        None => Ok(ScriptTrustState::Unknown),
         Some(entry) if *entry == record => Ok(ScriptTrustState::Trusted),
         Some(_) => Ok(ScriptTrustState::Modified),
     }

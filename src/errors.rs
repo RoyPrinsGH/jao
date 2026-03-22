@@ -33,8 +33,8 @@ pub enum JaoError {
     #[error("script exited with status {status}")]
     ScriptFailed { status: ExitStatus },
 
-    #[error("untrusted script requires interactive confirmation: {path}")]
-    UntrustedScriptNonInteractive { path: PathBuf },
+    #[error("unknown script trust requires interactive confirmation: {path}")]
+    UnknownScriptNonInteractive { path: PathBuf },
 
     #[error("script was not trusted by user: {path}")]
     ScriptNotTrusted { path: PathBuf },

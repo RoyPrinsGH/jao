@@ -5,6 +5,8 @@ const UNDERLINE: &str = "\x1b[4m";
 const CYAN: &str = "\x1b[36m";
 const GREEN: &str = "\x1b[32m";
 const RESET: &str = "\x1b[0m";
+const OPTION_COL_WIDTH: usize = 28;
+const OPTION_DESC_INDENT: &str = "                              ";
 
 pub fn print_help() {
     if should_style() {
@@ -13,8 +15,8 @@ pub fn print_help() {
         println!();
         section("USAGE");
         line("  jao --list");
-        line("  jao --fingerprint <SCRIPT_COMMAND_PART>...");
-        line("  jao <SCRIPT_COMMAND_PART>...");
+        line("  jao --fingerprint <SCRIPT_COMMAND>...");
+        line("  jao <SCRIPT_COMMAND>...");
         println!();
 
         section("OPTIONS");
@@ -24,7 +26,7 @@ pub fn print_help() {
             "List runnable scripts discovered from the current directory downward",
         );
         option(
-            "      --fingerprint <SCRIPT_COMMAND_PART>...",
+            "      --fingerprint <SCRIPT_COMMAND>...",
             "Resolve a script command, then print SHA-256 of canonical path + file contents",
         );
         option("  -V, --version", "Print version");
@@ -37,11 +39,19 @@ pub fn print_help() {
         line("  The script runs with working directory set to the script's folder.");
         println!();
 
+        section("TRUST BEHAVIOR");
+        line("  Running a script requires trust.");
+        line("  Unknown scripts prompt: trust and run? [y/N]");
+        line("  Modified scripts prompt: re-trust and run? [y/N]");
+        line("  In non-interactive mode, unknown/modified scripts fail.");
+        line("  --list prints trust state labels: trusted, unknown, or modified.");
+        println!();
+
         section("EXAMPLES");
-        example("  jao --list");
-        line("    Show all discovered runnable scripts.");
         example("  jao --fingerprint deploy api prod");
         line("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
+        example("  jao --list");
+        line("    Output format: <trust-state> <script-path>.");
         example("  jao test");
         line("    Run test.sh / test.bat if found.");
         example("  jao deploy api prod");
@@ -54,18 +64,20 @@ pub fn print_help() {
         println!();
         println!("USAGE:");
         println!("  jao --list");
-        println!("  jao --fingerprint <SCRIPT_COMMAND_PART>...");
-        println!("  jao <SCRIPT_COMMAND_PART>...");
+        println!("  jao --fingerprint <SCRIPT_COMMAND>...");
+        println!("  jao <SCRIPT_COMMAND>...");
         println!();
         println!("OPTIONS:");
-        println!("  -h, --help                Show this help screen");
-        println!(
-            "      --list                List runnable scripts discovered from the current directory downward"
+        option_plain("  -h, --help", "Show this help screen");
+        option_plain(
+            "      --list",
+            "List runnable scripts discovered from the current directory downward",
         );
-        println!(
-            "      --fingerprint <SCRIPT_COMMAND_PART>...  Resolve a script command, then print SHA-256 of canonical path + file contents"
+        option_plain(
+            "      --fingerprint <SCRIPT_COMMAND>...",
+            "Resolve a script command, then print SHA-256 of canonical path + file contents",
         );
-        println!("  -V, --version             Print version");
+        option_plain("  -V, --version", "Print version");
         println!();
         println!("SCRIPT COMMAND INPUT:");
         println!("  Positional parts are joined with '.' to form the script base name.");
@@ -75,11 +87,18 @@ pub fn print_help() {
         );
         println!("  The script runs with working directory set to the script's folder.");
         println!();
+        println!("TRUST BEHAVIOR:");
+        println!("  Running a script requires trust.");
+        println!("  Unknown scripts prompt: trust and run? [y/N]");
+        println!("  Modified scripts prompt: re-trust and run? [y/N]");
+        println!("  In non-interactive mode, unknown/modified scripts fail.");
+        println!("  --list prints trust state labels: trusted, unknown, or modified.");
+        println!();
         println!("EXAMPLES:");
-        println!("  jao --list");
-        println!("    Show all discovered runnable scripts.");
         println!("  jao --fingerprint deploy api prod");
         println!("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
+        println!("  jao --list");
+        println!("    Output format: <trust-state> <script-path>.");
         println!("  jao test");
         println!("    Run test.sh / test.bat if found.");
         println!("  jao deploy api prod");
@@ -98,7 +117,21 @@ fn section(name: &str) {
 }
 
 fn option(flag: &str, desc: &str) {
-    println!("{BOLD}{flag:<28}{RESET}{desc}");
+    if flag.chars().count() <= OPTION_COL_WIDTH {
+        println!("{BOLD}{flag:<OPTION_COL_WIDTH$}{RESET}{desc}");
+    } else {
+        println!("{BOLD}{flag}{RESET}");
+        println!("{OPTION_DESC_INDENT}{desc}");
+    }
+}
+
+fn option_plain(flag: &str, desc: &str) {
+    if flag.chars().count() <= OPTION_COL_WIDTH {
+        println!("{flag:<OPTION_COL_WIDTH$}{desc}");
+    } else {
+        println!("{flag}");
+        println!("{OPTION_DESC_INDENT}{desc}");
+    }
 }
 
 fn line(text: &str) {
