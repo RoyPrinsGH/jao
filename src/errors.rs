@@ -9,15 +9,15 @@ pub enum ActionError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("script not found: {script_name}")]
+    #[error("script {script_name} not found")]
     ScriptNotFound { script_name: String },
 
-    #[error("script has no parent directory: {path}")]
+    #[error("script {path} has no parent directory")]
     ScriptHasNoParent { path: PathBuf },
 
-    #[error("script has no file name: {path}")]
+    #[error("script {path} has no file name")]
     ScriptHasNoFileName { path: PathBuf },
 
-    #[error("script exited with status: {status}")]
+    #[error("script exited with status {status}")]
     ScriptFailed { status: ExitStatus },
 }
