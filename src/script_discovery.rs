@@ -1,10 +1,9 @@
-use jwalk::WalkDir;
 use std::ffi::OsStr;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use crate::errors::JaoError;
-use crate::errors::JaoResult;
+use jwalk::WalkDir;
+
+use crate::errors::{JaoError, JaoResult};
 
 pub fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(root)
@@ -20,7 +19,6 @@ pub fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = Path
 fn is_supported_script_extension(ext: &str) -> bool {
     #[cfg(windows)]
     return ext.eq_ignore_ascii_case("bat");
-
     #[cfg(unix)]
     return ext.eq_ignore_ascii_case("sh");
 }

@@ -1,19 +1,19 @@
-use clap::{Parser, error::ErrorKind};
-use std::{io::ErrorKind as IoErrorKind, path::Path};
+use std::io::ErrorKind as IoErrorKind;
+use std::path::Path;
+
+use clap::Parser;
+use clap::error::ErrorKind;
 
 use crate::errors::{JaoError, JaoResult};
 
 mod actions;
 mod errors;
-mod hash;
 mod help_screen;
 mod script_discovery;
+mod trust;
 
 #[cfg(feature = "config")]
 mod config;
-
-#[cfg(feature = "trust-manifest")]
-mod trust_manifest;
 
 #[derive(Debug, Parser)]
 #[command(name = "jao")]
@@ -134,7 +134,7 @@ fn run_command(command: impl Into<CommandAction>, root: impl AsRef<Path>) -> Jao
             required_fingerprint: Some(required_fingerprint),
         } => {
             let script_path = script_discovery::resolve_script(root, &parts)?;
-            actions::run_script_ci(script_path, &required_fingerprint)
+            actions::run_script_with_fingerprint(script_path, &required_fingerprint)
         }
         CommandAction::Run { ci: true, .. } => return Err(JaoError::CiRunRequiresFingerprint),
         CommandAction::Run {
@@ -143,14 +143,14 @@ fn run_command(command: impl Into<CommandAction>, root: impl AsRef<Path>) -> Jao
             required_fingerprint: Some(required_fingerprint),
         } => {
             let script_path = script_discovery::resolve_script(root, &parts)?;
-            actions::run_script_ci(script_path, &required_fingerprint)
+            actions::run_script_with_fingerprint(script_path, &required_fingerprint)
         }
         CommandAction::Run { parts, ci: false, .. } => {
             #[cfg(feature = "trust-manifest")]
             {
                 let script_path = script_discovery::resolve_script(root, &parts)?;
                 let mut context = config::load_or_init()?;
-                actions::run_script(script_path, &mut context)
+                actions::run_script_with_trust(script_path, &mut context)
             }
             #[cfg(not(feature = "trust-manifest"))]
             {

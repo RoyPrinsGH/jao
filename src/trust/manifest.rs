@@ -1,28 +1,9 @@
-use std::fmt;
 use std::path::Path;
 
-use crate::config::{self, JaoContext, TrustedFileRecord, TrustedManifest};
+use crate::config::models::JaoContext;
 use crate::errors::JaoResult;
-use crate::hash;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScriptTrustState {
-    Trusted,
-    Unknown,
-    Modified,
-}
-
-impl fmt::Display for ScriptTrustState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
-            ScriptTrustState::Trusted => "trusted",
-            ScriptTrustState::Unknown => "unknown",
-            ScriptTrustState::Modified => "modified",
-        };
-
-        f.write_str(label)
-    }
-}
+use crate::trust::models::{ScriptTrustState, TrustedFileRecord, TrustedManifest};
+use crate::trust::{fingerprint, persistence};
 
 pub fn get_script_trust(script_path: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<ScriptTrustState> {
     let (key, record) = build_trusted_record_for_file(script_path.as_ref())?;
@@ -37,11 +18,11 @@ pub fn get_script_trust(script_path: impl AsRef<Path>, manifest: &TrustedManifes
 pub fn write_script_trust_record(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
     let (key, record) = build_trusted_record_for_file(script_path.as_ref())?;
     context.trusted_manifest.scripts.insert(key, record);
-    config::write_manifest(&context.config.trustfile, &context.trusted_manifest)
+    persistence::write_manifest(&context.config.trustfile, &context.trusted_manifest)
 }
 
 fn build_trusted_record_for_file(path: &Path) -> JaoResult<(String, TrustedFileRecord)> {
-    let (canonical_path, fingerprint) = hash::fingerprint_file(path)?;
+    let (canonical_path, fingerprint) = fingerprint::fingerprint_file(path)?;
     let key = canonical_path.to_string_lossy().to_string();
     Ok((key, TrustedFileRecord { fingerprint }))
 }

@@ -1,23 +1,21 @@
-use crate::errors::{JaoError, JaoResult};
-use crate::hash;
-
 #[cfg(feature = "trust-manifest")]
-use crate::config::JaoContext;
-
-#[cfg(feature = "trust-manifest")]
-use crate::trust_manifest::{self, ScriptTrustState};
-
+use std::io::{self, IsTerminal, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
 #[cfg(feature = "trust-manifest")]
-use std::io::{self, IsTerminal, Write};
+use crate::config::models::JaoContext;
+use crate::errors::{JaoError, JaoResult};
+#[cfg(feature = "trust-manifest")]
+use crate::trust;
+#[cfg(feature = "trust-manifest")]
+use crate::trust::models::ScriptTrustState;
 
 #[cfg(feature = "trust-manifest")]
-pub fn run_script(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
+pub fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
-    let trust_state = trust_manifest::get_script_trust(&canonical_path, &context.trusted_manifest)?;
+    let trust_state = trust::manifest::get_script_trust(&canonical_path, &context.trusted_manifest)?;
 
     if trust_state != ScriptTrustState::Trusted {
         if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
@@ -43,7 +41,7 @@ pub fn run_script(script_path: impl AsRef<Path>, context: &mut JaoContext) -> Ja
         let answer = answer.trim().to_ascii_lowercase();
 
         if answer == "y" || answer == "yes" {
-            trust_manifest::write_script_trust_record(&canonical_path, context)?;
+            trust::manifest::write_script_trust_record(&canonical_path, context)?;
         } else {
             return Err(JaoError::ScriptNotTrusted { path: canonical_path });
         }
@@ -52,10 +50,10 @@ pub fn run_script(script_path: impl AsRef<Path>, context: &mut JaoContext) -> Ja
     execute_script(script_path)
 }
 
-pub fn run_script_ci(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
+pub fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
     let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
 
-    let (canonical_path, actual_fingerprint) = hash::fingerprint_file(&script_path)?;
+    let (canonical_path, actual_fingerprint) = trust::fingerprint::fingerprint_file(&script_path)?;
 
     if actual_fingerprint != required_fingerprint {
         return Err(JaoError::FingerprintMismatch {
