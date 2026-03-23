@@ -121,7 +121,7 @@ fn run_command(command: impl Into<CommandAction>, root: impl AsRef<Path>) -> Jao
             }
             #[cfg(not(feature = "trust-manifest"))]
             {
-                actions::list_scripts(&cwd)?;
+                actions::list_scripts(root)
             }
         }
         CommandAction::Fingerprint { parts } => {
@@ -155,7 +155,7 @@ fn run_command(command: impl Into<CommandAction>, root: impl AsRef<Path>) -> Jao
             #[cfg(not(feature = "trust-manifest"))]
             {
                 let _ = parts;
-                return Err(JaoError::RunWithoutTrustManifestRequiresFingerprint);
+                Err(JaoError::RunWithoutTrustManifestRequiresFingerprint)
             }
         }
         CommandAction::NoOp => Ok(()),

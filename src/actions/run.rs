@@ -103,17 +103,65 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
         .status()?;
 
     #[cfg(unix)]
-    let status = Command::new("sh")
-        .arg(script_file)
-        .current_dir(script_dir)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()?;
+    let status = if is_executable(script_path)? {
+        Command::new(Path::new(".").join(script_file))
+            .current_dir(script_dir)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()?
+    } else if let Some((interpreter, interpreter_args)) = parse_shebang(script_path)? {
+        Command::new(interpreter)
+            .args(interpreter_args)
+            .arg(script_file)
+            .current_dir(script_dir)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()?
+    } else {
+        return Err(JaoError::ScriptNotExecutableAndNoShebang {
+            path: script_path.to_path_buf(),
+        });
+    };
 
     if status.success() {
         Ok(())
     } else {
         Err(JaoError::ScriptFailed { status })
     }
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> JaoResult<bool> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let metadata = std::fs::metadata(path)?;
+    Ok(metadata.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(unix)]
+fn parse_shebang(path: &Path) -> JaoResult<Option<(String, Vec<String>)>> {
+    use std::io::BufRead;
+
+    let file = std::fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line)?;
+
+    if !first_line.starts_with("#!") {
+        return Ok(None);
+    }
+
+    let shebang = first_line[2..].trim();
+    if shebang.is_empty() {
+        return Ok(None);
+    }
+
+    let mut parts = shebang.split_whitespace();
+    let Some(interpreter) = parts.next() else {
+        return Ok(None);
+    };
+
+    Ok(Some((interpreter.to_string(), parts.map(ToString::to_string).collect())))
 }

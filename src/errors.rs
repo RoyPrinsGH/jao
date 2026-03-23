@@ -34,6 +34,9 @@ pub enum JaoError {
     #[error("script {path} has no file name")]
     ScriptHasNoFileName { path: PathBuf },
 
+    #[error("script is not executable and has no shebang: {path}")]
+    ScriptNotExecutableAndNoShebang { path: PathBuf },
+
     #[error("script exited with status {status}")]
     ScriptFailed { status: ExitStatus },
 
