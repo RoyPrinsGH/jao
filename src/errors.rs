@@ -22,7 +22,7 @@ pub enum JaoError {
     #[error(transparent)]
     TomlSerialize(#[from] toml::ser::Error),
 
-    #[cfg(feature = "config")]
+    #[cfg(feature = "trust-manifest")]
     #[error("invalid trustfile path: {path}")]
     InvalidTrustfilePath { path: PathBuf },
 
