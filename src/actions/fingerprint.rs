@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::path::Path;
 
-use crate::errors::JaoResult;
+use crate::error::JaoResult;
 use crate::trust;
 
 pub fn fingerprint_script(script_path: impl AsRef<Path>) -> JaoResult<()> {

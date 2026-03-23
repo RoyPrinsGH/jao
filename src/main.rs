@@ -4,10 +4,10 @@ use std::path::Path;
 use clap::Parser;
 use clap::error::ErrorKind;
 
-use crate::errors::{JaoError, JaoResult};
+use crate::error::{JaoError, JaoResult};
 
 mod actions;
-mod errors;
+mod error;
 mod help_screen;
 mod script_discovery;
 mod trust;

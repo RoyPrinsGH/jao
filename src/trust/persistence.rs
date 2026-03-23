@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use crate::errors::{JaoError, JaoResult};
+use crate::error::{JaoError, JaoResult};
 use crate::trust::models::TrustedManifest;
 
 pub(crate) fn load_or_init_trusted_manifest(trustfile_path: impl AsRef<Path>) -> JaoResult<TrustedManifest> {

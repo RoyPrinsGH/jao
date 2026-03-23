@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::config::models::JaoContext;
-use crate::errors::JaoResult;
+use crate::error::JaoResult;
 use crate::trust::models::{ScriptTrustState, TrustedFileRecord, TrustedManifest};
 use crate::trust::{fingerprint, persistence};
 

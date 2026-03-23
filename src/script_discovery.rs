@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use jwalk::WalkDir;
 
-use crate::errors::{JaoError, JaoResult};
+use crate::error::{JaoError, JaoResult};
 
 pub fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(root)

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::errors::JaoResult;
+use crate::error::JaoResult;
 
 pub fn fingerprint_file(path: impl AsRef<Path>) -> JaoResult<(PathBuf, String)> {
     let canonical_path = std::fs::canonicalize(path)?;

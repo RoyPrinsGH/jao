@@ -4,7 +4,7 @@ use home::home_dir;
 
 use crate::config;
 use crate::config::models::{JaoConfig, JaoConfigFile, JaoContext};
-use crate::errors::{JaoError, JaoResult};
+use crate::error::{JaoError, JaoResult};
 #[cfg(feature = "trust-manifest")]
 use crate::trust;
 

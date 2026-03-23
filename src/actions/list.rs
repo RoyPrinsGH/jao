@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::path::Path;
 
-use crate::errors::JaoResult;
+use crate::error::JaoResult;
 use crate::script_discovery;
 #[cfg(feature = "trust-manifest")]
 use crate::trust;

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::config::JaoConfigFile;
-use crate::errors::JaoResult;
+use crate::error::JaoResult;
 
 pub(super) fn write_config(path: &Path, config: &JaoConfigFile) -> JaoResult<()> {
     let content = toml::to_string_pretty(config)?;
