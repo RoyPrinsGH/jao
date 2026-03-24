@@ -117,6 +117,20 @@ Or run it directly during development:
 cargo run -- --list
 ```
 
+## Docker
+
+Build the image:
+
+```bash
+docker build -t jao .
+```
+
+Run it against your current workspace:
+
+```bash
+docker run --rm -it -v "$PWD:/workspace" -w /workspace jao --list
+```
+
 ## License
 
 `jao` is licensed under Apache-2.0.

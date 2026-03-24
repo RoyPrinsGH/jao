@@ -11,4 +11,5 @@
 mod load;
 pub(crate) mod models;
 mod persistence;
+#[allow(unused_imports)]
 pub(crate) use load::load_or_init;
