@@ -1,3 +1,65 @@
+//! `jao` is a small CLI for discovering and running workspace scripts.
+//!
+//! It is meant for repositories that already have shell or batch scripts and
+//! want a thin command layer on top, without adopting a bigger task runner.
+//!
+//! # What it does
+//!
+//! - Recursively discovers `.sh` scripts on Unix-like systems and `.bat`
+//!   scripts on Windows
+//! - Resolves a command like `jao deploy api prod` to a script base name like
+//!   `deploy.api.prod`
+//! - Runs the script from the script's own directory
+//! - Supports SHA-256 fingerprint checks for CI-safe execution
+//! - Optionally keeps a local trust manifest for interactive runs
+//!
+//! # Common usage
+//!
+//! ```text
+//! jao --list
+//! jao --fingerprint deploy api prod
+//! jao deploy api prod
+//! jao --ci --require-fingerprint <FINGERPRINT> deploy api prod
+//! ```
+//!
+//! # Trust behavior
+//!
+//! In the default build, `jao` keeps a trust manifest under `~/.jao/`.
+//!
+//! - Unknown scripts prompt before first run
+//! - Modified scripts prompt again
+//! - `--ci` disables prompting
+//! - CI runs require `--require-fingerprint`
+//!
+//! If the crate is built without the `trust-manifest` feature, interactive
+//! trust is disabled and runs require an explicit fingerprint.
+//!
+//! # Fingerprints and Trust Manifests
+//!
+//! `jao` fingerprints a script by hashing two things together:
+//!
+//! - the script's canonical path
+//! - the script file contents
+//!
+//! This means moving a script to a different real path changes the
+//! fingerprint, even if the bytes are identical. That is intentional: trust is
+//! attached to the exact file at the exact resolved location.
+//!
+//! When the `trust-manifest` feature is enabled, trusted scripts are stored in
+//! a local trust manifest keyed by canonical path. Each entry records the last
+//! trusted fingerprint for that script. If the current fingerprint differs from
+//! the stored one, `jao` treats the script as modified and asks for trust again
+//! in interactive mode.
+//!
+//! # Features
+//!
+//! - `trust-manifest` (default): Enables local trust tracking for interactive
+//!   runs
+//! - `config`: Enables config file support used by `trust-manifest`
+//!
+//! See the repository README for a fuller overview and examples aimed at end
+//! users.
+
 use std::io::ErrorKind as IoErrorKind;
 use std::path::Path;
 

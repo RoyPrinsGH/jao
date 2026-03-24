@@ -1,3 +1,8 @@
+//! Data models used by the trust-manifest feature.
+//!
+//! The trust manifest is persisted as TOML and maps canonical script paths to
+//! trusted fingerprint records.
+
 #[cfg(feature = "trust-manifest")]
 mod script_trust_state;
 #[cfg(feature = "trust-manifest")]

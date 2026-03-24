@@ -1,9 +1,14 @@
 use std::fmt;
 
+/// The result of comparing a script's current fingerprint to the trust
+/// manifest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScriptTrustState {
+    /// The current fingerprint matches the stored trust record.
     Trusted,
+    /// No trust record exists for this script path.
     Unknown,
+    /// A trust record exists, but the current fingerprint no longer matches.
     Modified,
 }
 

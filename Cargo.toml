@@ -1,7 +1,19 @@
 [package]
 name = "jao"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
+description = "Discover and run workspace scripts from a simple CLI"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/RoyPrinsGH/jao"
+documentation = "https://docs.rs/jao"
+keywords = ["cli", "scripts", "workspace", "automation", "task-runner"]
+categories = ["command-line-utilities", "development-tools"]
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = []
 
 [features]
 default = ["trust-manifest"]

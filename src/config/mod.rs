@@ -1,3 +1,5 @@
+#![doc(hidden)]
+
 use std::fs;
 
 use home::home_dir;

@@ -1,3 +1,5 @@
+#![doc(hidden)]
+
 mod fingerprint;
 mod list;
 mod run;
