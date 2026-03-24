@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::error::JaoResult;
+use crate::JaoResult;
 
 /// Computes the script fingerprint used by `jao`.
 ///

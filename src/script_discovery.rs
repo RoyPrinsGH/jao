@@ -1,12 +1,30 @@
-#![doc(hidden)]
+//! Script discovery and command resolution.
+//!
+//! `jao` treats script names as dotted command identifiers. A command like
+//! `jao deploy api prod` is resolved to the base name `deploy.api.prod`, then
+//! matched against runnable script files under the current workspace.
+//!
+//! Discovery is platform-aware:
+//!
+//! - Unix-like systems look for `.sh`
+//! - Windows looks for `.bat`
+//!
+//! Resolution searches recursively from the chosen root directory and returns
+//! the first matching script yielded by the directory walk.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use jwalk::WalkDir;
 
-use crate::error::{JaoError, JaoResult};
+use crate::{JaoError, JaoResult};
 
+/// Recursively enumerates runnable scripts below `root`.
+///
+/// Only files with the platform-supported script extension are returned:
+///
+/// - `.sh` on Unix-like systems
+/// - `.bat` on Windows
 pub(crate) fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(root)
         .into_iter()
@@ -25,6 +43,16 @@ fn is_supported_script_extension(ext: &str) -> bool {
     return ext.eq_ignore_ascii_case("sh");
 }
 
+/// Resolves a command-part list to a script path.
+///
+/// The input parts are joined with `.` to form the script base name. For
+/// example, `["deploy", "api", "prod"]` resolves to `deploy.api.prod`.
+///
+/// Matching is done against the discovered script file stem using
+/// platform-specific comparison rules:
+///
+/// - case-sensitive on Unix-like systems
+/// - case-insensitive on Windows
 pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
     let script_name = parts.join(".");
     enumerate_scripts_in(root)

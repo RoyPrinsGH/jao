@@ -5,7 +5,7 @@
 //!
 //! The two core concepts are:
 //!
-//! - [`fingerprint`]: computes a stable SHA-256 digest from a script's
+//! - [`fingerprint::fingerprint_file`]: computes a stable SHA-256 digest from a script's
 //!   canonical path and contents
 //! - [`models::TrustedManifest`]: stores the last trusted fingerprint per
 //!   canonical script path
@@ -14,8 +14,10 @@
 //! makes the trust behavior auditable and predictable.
 
 pub(crate) mod fingerprint;
+
 #[cfg(feature = "trust-manifest")]
 pub(crate) mod manifest;
+#[cfg(feature = "trust-manifest")]
 pub(crate) mod models;
 #[cfg(feature = "trust-manifest")]
 pub(crate) mod persistence;

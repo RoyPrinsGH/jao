@@ -5,10 +5,9 @@ use std::process::{Command, Stdio};
 
 #[cfg(feature = "trust-manifest")]
 use crate::config::models::JaoContext;
-use crate::error::{JaoError, JaoResult};
-use crate::trust;
 #[cfg(feature = "trust-manifest")]
 use crate::trust::models::ScriptTrustState;
+use crate::{JaoError, JaoResult, trust};
 
 #[cfg(feature = "trust-manifest")]
 pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
