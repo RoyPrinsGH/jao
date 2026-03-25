@@ -34,6 +34,27 @@ jobs:
       - name: Build all feature combinations
         run: cargo hack build --locked --each-feature
 
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Run tests
+        run: cargo test --locked
+
   docs:
     name: docs
     runs-on: ubuntu-latest
