@@ -152,6 +152,7 @@ enum JaoError {
     #[error("script {path} has no file name")]
     ScriptHasNoFileName { path: PathBuf },
 
+    #[cfg(unix)]
     #[error("script is not executable and has no shebang: {path}")]
     ScriptNotExecutableAndNoShebang { path: PathBuf },
 

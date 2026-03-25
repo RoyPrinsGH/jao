@@ -1,46 +1,47 @@
 use assert_cmd::Command;
 use assert_fs::TempDir;
 use assert_fs::fixture::{FileTouch, FileWriteStr, PathChild};
+use std::path::{Path, PathBuf};
 
 #[test]
 fn jaofolder_commands_change_with_current_directory() {
     let workspace = TempDir::new().unwrap();
-    workspace.child("myapp/.jaofolder").touch().unwrap();
-    workspace.child("myapp/backend/.jaofolder").touch().unwrap();
+    workspace.child(Path::new("myapp").join(".jaofolder")).touch().unwrap();
+    workspace.child(Path::new("myapp").join("backend").join(".jaofolder")).touch().unwrap();
     workspace
-        .child(format!("myapp/backend/scripts/build.{}", script_extension()))
+        .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
         .write_str(script_contents())
         .unwrap();
 
     let root_output = list_output(workspace.path());
-    let myapp_output = list_output(workspace.child("myapp").path());
-    let backend_output = list_output(workspace.child("myapp/backend").path());
+    let myapp_output = list_output(workspace.child(Path::new("myapp")).path());
+    let backend_output = list_output(workspace.child(Path::new("myapp").join("backend")).path());
 
     assert_eq!(
         root_output,
         list_line(
             "myapp backend build",
-            workspace.child(format!("myapp/backend/scripts/build.{}", script_extension())).path(),
+            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
         )
     );
     assert_eq!(
         myapp_output,
         list_line(
             "backend build",
-            workspace.child(format!("myapp/backend/scripts/build.{}", script_extension())).path(),
+            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
         )
     );
     assert_eq!(
         backend_output,
         list_line(
             "build",
-            workspace.child(format!("myapp/backend/scripts/build.{}", script_extension())).path(),
+            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
         )
     );
 
     let root_fingerprint = fingerprint_output(workspace.path(), &["myapp", "backend", "build"]);
-    let myapp_fingerprint = fingerprint_output(workspace.child("myapp").path(), &["backend", "build"]);
-    let backend_fingerprint = fingerprint_output(workspace.child("myapp/backend").path(), &["build"]);
+    let myapp_fingerprint = fingerprint_output(workspace.child(Path::new("myapp")).path(), &["backend", "build"]);
+    let backend_fingerprint = fingerprint_output(workspace.child(Path::new("myapp").join("backend")).path(), &["build"]);
 
     assert_eq!(root_fingerprint, myapp_fingerprint);
     assert_eq!(myapp_fingerprint, backend_fingerprint);
@@ -50,36 +51,36 @@ fn jaofolder_commands_change_with_current_directory() {
 fn recursive_jaoignore_hides_nested_matches() {
     let workspace = TempDir::new().unwrap();
     workspace.child(".jaofolder").touch().unwrap();
-    workspace.child(".jaoignore").write_str("ignored/\nskip-me.sh\n").unwrap();
-    workspace.child("myapp/.jaofolder").touch().unwrap();
-    workspace.child("myapp/backend/.jaofolder").touch().unwrap();
     workspace
-        .child("myapp/backend/.jaoignore")
+        .child(".jaoignore")
+        .write_str(&format!("ignored/\nskip-me.{}\n", script_extension()))
+        .unwrap();
+    workspace.child(Path::new("myapp").join(".jaofolder")).touch().unwrap();
+    workspace.child(Path::new("myapp").join("backend").join(".jaofolder")).touch().unwrap();
+    workspace
+        .child(Path::new("myapp").join("backend").join(".jaoignore"))
         .write_str(format!("build.{}\n", script_extension()).as_str())
         .unwrap();
     workspace
-        .child(format!("myapp/backend/scripts/build.{}", script_extension()))
+        .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
         .write_str(script_contents())
         .unwrap();
     workspace
-        .child(format!("myapp/backend/scripts/keep.{}", script_extension()))
+        .child(script_rel_path(&["myapp", "backend", "scripts"], "keep"))
         .write_str(script_contents())
         .unwrap();
     workspace
-        .child(format!("ignored/scripts/nope.{}", script_extension()))
+        .child(script_rel_path(&["ignored", "scripts"], "nope"))
         .write_str(script_contents())
         .unwrap();
-    workspace
-        .child(format!("skip-me.{}", script_extension()))
-        .write_str(script_contents())
-        .unwrap();
+    workspace.child(script_rel_path(&[], "skip-me")).write_str(script_contents()).unwrap();
 
     let output = list_output(workspace.path());
     assert_eq!(
         output,
         list_line(
             "myapp backend keep",
-            workspace.child(format!("myapp/backend/scripts/keep.{}", script_extension())).path(),
+            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "keep")).path(),
         )
     );
 
@@ -106,6 +107,15 @@ fn fingerprint_output(cwd: &std::path::Path, parts: &[&str]) -> String {
 
 fn list_line(command: &str, path: &std::path::Path) -> String {
     format!("{command} \t\t {}\n", path.display())
+}
+
+fn script_rel_path(directories: &[&str], stem: &str) -> PathBuf {
+    let mut path = PathBuf::new();
+    for directory in directories {
+        path.push(directory);
+    }
+    path.push(format!("{stem}.{}", script_extension()));
+    path
 }
 
 fn command_for(cwd: &std::path::Path) -> Command {
