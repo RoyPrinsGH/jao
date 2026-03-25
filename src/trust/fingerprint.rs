@@ -29,5 +29,5 @@ pub(crate) fn fingerprint_file(path: impl AsRef<Path>) -> JaoResult<(PathBuf, St
     hasher.update([0]);
     hasher.update(file_contents);
 
-    Ok((canonical_path, format!("{:x}", hasher.finalize())))
+    Ok((canonical_path, hex::encode(hasher.finalize())))
 }

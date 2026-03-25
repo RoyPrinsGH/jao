@@ -7,8 +7,8 @@
 //!
 //! - Recursively discovers `.sh` scripts on Unix-like systems and `.bat`
 //!   scripts on Windows
-//! - Resolves a command like `jao deploy api prod` to a script base name like
-//!   `deploy.api.prod`
+//! - Resolves a command like `jao deploy api prod` to a script selected by
+//!   `.jaofolder` path markers plus the script file stem
 //! - Runs the script from the script's own directory
 //! - Supports SHA-256 fingerprint checks for CI-safe execution
 //! - Optionally keeps a local trust manifest for interactive runs
@@ -35,6 +35,14 @@
 //! trust is disabled and runs require an explicit fingerprint.
 //!
 //! # Fingerprints and Trust Manifests
+//!
+//! `.jaofolder` files mark directories that should appear in the command name.
+//! If `myapp/` and `backend/` contain `.jaofolder`, then a script at
+//! `myapp/backend/scripts/build.sh` is exposed as:
+//!
+//! - `jao myapp backend build` from the workspace root
+//! - `jao backend build` from inside `myapp/`
+//! - `jao build` from inside `myapp/backend/`
 //!
 //! `jao` fingerprints a script by hashing two things together:
 //!

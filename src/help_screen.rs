@@ -32,7 +32,7 @@ pub(crate) fn print_help() {
 
         section("OPTIONS");
         option("  -h, --help", "Show this help screen");
-        option("      --list", "List runnable scripts discovered from the current directory downward");
+        option("      --list", "List runnable scripts as command names plus their resolved file paths");
         option(
             "      --fingerprint <SCRIPT_COMMAND>...",
             "Resolve a script command, then print SHA-256 of canonical path + file contents",
@@ -46,8 +46,12 @@ pub(crate) fn print_help() {
         println!();
 
         section("SCRIPT COMMAND INPUT");
-        line("  Positional parts are joined with '.' to form the script base name.");
-        line("  Example: jao deploy api prod  -> base name deploy.api.prod");
+        line("  Script file stems still use '.' as command separators.");
+        line("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        line("  Example: myapp/backend/scripts/build.sh becomes:");
+        line("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
+        line("    jao backend build from inside myapp/");
+        line("    jao build from inside backend/");
         line("  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows.");
         line("  The script runs with working directory set to the script's folder.");
         println!();
@@ -59,7 +63,7 @@ pub(crate) fn print_help() {
             line("  Unknown scripts prompt: trust and run? [y/N]");
             line("  Modified scripts prompt: re-trust and run? [y/N]");
             line("  In non-interactive mode, unknown/modified scripts fail.");
-            line("  --list prints trust state labels: trusted, unknown, or modified.");
+            line("  --list prints trust state labels plus command names and resolved paths.");
             line("  --require-fingerprint can be used in CI mode.");
         }
         #[cfg(not(feature = "trust-manifest"))]
@@ -67,14 +71,14 @@ pub(crate) fn print_help() {
             line("  This build has trust-manifest disabled.");
             line("  All runs require --require-fingerprint <FINGERPRINT>.");
             line("  Runs are always non-interactive and never write trust state.");
-            line("  --list prints script paths only.");
+            line("  --list prints command names and resolved paths.");
         }
         line("  --ci skips config/manifest creation and never prompts.");
         #[cfg(feature = "trust-manifest")]
         line("  --ci run requires --require-fingerprint <FINGERPRINT>.");
         #[cfg(not(feature = "trust-manifest"))]
         line("  --ci uses the same fingerprint-required run policy.");
-        line("  --ci --list prints script paths only (no trust labels).");
+        line("  --ci --list prints command names and resolved paths (no trust labels).");
         println!();
 
         section("EXAMPLES");
@@ -82,11 +86,11 @@ pub(crate) fn print_help() {
         line("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         example("  jao --list");
         #[cfg(feature = "trust-manifest")]
-        line("    Output format: <trust-state> <script-path>.");
+        line("    Output format: <trust-state> <script-command> -> <script-path>.");
         #[cfg(not(feature = "trust-manifest"))]
-        line("    Output format: <script-path>.");
+        line("    Output format: <script-command> -> <script-path>.");
         example("  jao --ci --list");
-        line("    Output format: <script-path>.");
+        line("    Output format: <script-command> -> <script-path>.");
         #[cfg(feature = "trust-manifest")]
         example("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
         #[cfg(not(feature = "trust-manifest"))]
@@ -112,7 +116,7 @@ pub(crate) fn print_help() {
         println!();
         println!("OPTIONS:");
         option_plain("  -h, --help", "Show this help screen");
-        option_plain("      --list", "List runnable scripts discovered from the current directory downward");
+        option_plain("      --list", "List runnable scripts as command names plus their resolved file paths");
         option_plain(
             "      --fingerprint <SCRIPT_COMMAND>...",
             "Resolve a script command, then print SHA-256 of canonical path + file contents",
@@ -125,8 +129,12 @@ pub(crate) fn print_help() {
         option_plain("  -V, --version", "Print version");
         println!();
         println!("SCRIPT COMMAND INPUT:");
-        println!("  Positional parts are joined with '.' to form the script base name.");
-        println!("  Example: jao deploy api prod  -> base name deploy.api.prod");
+        println!("  Script file stems still use '.' as command separators.");
+        println!("  Directories contribute command parts only when they contain a .jaofolder marker.");
+        println!("  Example: myapp/backend/scripts/build.sh becomes:");
+        println!("    jao myapp backend build from the workspace root if myapp/ and backend/ are marked");
+        println!("    jao backend build from inside myapp/");
+        println!("    jao build from inside backend/");
         println!("  Matching extension is chosen by OS: .sh on Unix-like systems, .bat on Windows.");
         println!("  The script runs with working directory set to the script's folder.");
         println!();
@@ -137,7 +145,7 @@ pub(crate) fn print_help() {
             println!("  Unknown scripts prompt: trust and run? [y/N]");
             println!("  Modified scripts prompt: re-trust and run? [y/N]");
             println!("  In non-interactive mode, unknown/modified scripts fail.");
-            println!("  --list prints trust state labels: trusted, unknown, or modified.");
+            println!("  --list prints trust state labels plus command names and resolved paths.");
             println!("  --require-fingerprint can be used in CI mode.");
         }
         #[cfg(not(feature = "trust-manifest"))]
@@ -145,25 +153,25 @@ pub(crate) fn print_help() {
             println!("  This build has trust-manifest disabled.");
             println!("  All runs require --require-fingerprint <FINGERPRINT>.");
             println!("  Runs are always non-interactive and never write trust state.");
-            println!("  --list prints script paths only.");
+            println!("  --list prints command names and resolved paths.");
         }
         println!("  --ci skips config/manifest creation and never prompts.");
         #[cfg(feature = "trust-manifest")]
         println!("  --ci run requires --require-fingerprint <FINGERPRINT>.");
         #[cfg(not(feature = "trust-manifest"))]
         println!("  --ci uses the same fingerprint-required run policy.");
-        println!("  --ci --list prints script paths only (no trust labels).");
+        println!("  --ci --list prints command names and resolved paths (no trust labels).");
         println!();
         println!("EXAMPLES:");
         println!("  jao --fingerprint deploy api prod");
         println!("    Resolve deploy.api.prod.sh/.bat, then fingerprint that script file.");
         println!("  jao --list");
         #[cfg(feature = "trust-manifest")]
-        println!("    Output format: <trust-state> <script-path>.");
+        println!("    Output format: <trust-state> <script-command> -> <script-path>.");
         #[cfg(not(feature = "trust-manifest"))]
-        println!("    Output format: <script-path>.");
+        println!("    Output format: <script-command> -> <script-path>.");
         println!("  jao --ci --list");
-        println!("    Output format: <script-path>.");
+        println!("    Output format: <script-command> -> <script-path>.");
         #[cfg(feature = "trust-manifest")]
         println!("  jao --ci --require-fingerprint <FINGERPRINT> test integrations myapp");
         #[cfg(not(feature = "trust-manifest"))]

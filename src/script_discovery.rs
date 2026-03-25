@@ -1,8 +1,14 @@
 //! Script discovery and command resolution.
 //!
-//! `jao` treats script names as dotted command identifiers. A command like
-//! `jao deploy api prod` is resolved to the base name `deploy.api.prod`, then
-//! matched against runnable script files under the current workspace.
+//! `jao` resolves commands from two sources:
+//!
+//! - script file stems, where dots split command parts
+//! - ancestor directories marked with a `.jaofolder` file
+//!
+//! A command like `jao myapp backend build` can therefore resolve to a script
+//! at `myapp/backend/scripts/build.sh` when both `myapp/` and `backend/`
+//! contain `.jaofolder`, while `scripts/` remains invisible because it is not
+//! marked.
 //!
 //! Discovery is platform-aware:
 //!
@@ -13,61 +19,138 @@
 //! the first matching script yielded by the directory walk.
 
 use std::ffi::OsStr;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
-use jwalk::WalkDir;
+use jwalk::{DirEntry, WalkDir};
 
 use crate::{JaoError, JaoResult};
 
-/// Recursively enumerates runnable scripts below `root`.
-///
-/// Only files with the platform-supported script extension are returned:
-///
-/// - `.sh` on Unix-like systems
-/// - `.bat` on Windows
-pub(crate) fn enumerate_scripts_in(root: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
-    WalkDir::new(root)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-        .filter_map(|entry| {
-            let ext = Path::new(entry.file_name()).extension()?.to_str()?;
-            if is_supported_script_extension(ext) { Some(entry.path()) } else { None }
-        })
+const FOLDER_MARKER_FILE: &str = ".jaofolder";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DiscoveredScript<'a> {
+    pub(crate) path: &'a Path,
+    pub(crate) command_parts: Vec<&'a str>,
 }
 
-fn is_supported_script_extension(ext: &str) -> bool {
+impl<'a> DiscoveredScript<'a> {
+    pub(crate) fn make_command_display(&self) -> String {
+        self.command_parts.join(" ")
+    }
+    pub(crate) fn matches_parts(&self, parts: &[String]) -> bool {
+        self.command_parts.len() == parts.len()
+            && self
+                .command_parts
+                .iter()
+                .zip(parts)
+                .all(|(command_part, input_part)| is_command_name_match(command_part, input_part))
+    }
+}
+
+pub(crate) fn for_each_discovered_script<B>(
+    root: impl AsRef<Path>,
+    mut f: impl for<'a> FnMut(DiscoveredScript<'a>) -> JaoResult<ControlFlow<B>>,
+) -> JaoResult<ControlFlow<B>> {
+    let root = root.as_ref();
+
+    for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+        if !is_script(&entry) {
+            continue;
+        }
+
+        let path = entry.path();
+        let Some(script) = into_discovered_script(root, &path) else {
+            continue;
+        };
+
+        if let ControlFlow::Break(value) = f(script)? {
+            return Ok(ControlFlow::Break(value));
+        }
+    }
+
+    Ok(ControlFlow::Continue(()))
+}
+
+fn is_script(dir_entry: &DirEntry<((), ())>) -> bool {
+    dir_entry.file_type().is_file() && Path::new(dir_entry.file_name()).extension().is_some_and(is_supported_script_extension)
+}
+
+fn is_supported_script_extension(ext: &OsStr) -> bool {
     #[cfg(windows)]
     return ext.eq_ignore_ascii_case("bat");
     #[cfg(unix)]
     return ext.eq_ignore_ascii_case("sh");
 }
 
-/// Resolves a command-part list to a script path.
-///
-/// The input parts are joined with `.` to form the script base name. For
-/// example, `["deploy", "api", "prod"]` resolves to `deploy.api.prod`.
-///
-/// Matching is done against the discovered script file stem using
-/// platform-specific comparison rules:
-///
-/// - case-sensitive on Unix-like systems
-/// - case-insensitive on Windows
-pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
-    let script_name = parts.join(".");
-    enumerate_scripts_in(root)
-        .find(|path| path.file_stem().is_some_and(|file_stem| is_script_name_match(file_stem, &script_name)))
-        .ok_or(JaoError::ScriptNotFound { script_name })
-}
+fn into_discovered_script<'a>(root: &Path, script_path: &'a Path) -> Option<DiscoveredScript<'a>> {
+    let script_path_parts = script_path.file_stem()?.to_str()?.split('.').collect();
 
-fn is_script_name_match(file_stem: &OsStr, script_name: &str) -> bool {
-    let Some(file_stem) = file_stem.to_str() else {
-        return false;
+    let command_parts = if let Some(parent) = script_path.parent()
+        && let Some(marked_folder_parts) = get_marked_folder_parts(root, parent)
+    {
+        vec![marked_folder_parts, script_path_parts].concat()
+    } else {
+        script_path_parts
     };
 
+    Some(DiscoveredScript {
+        path: script_path,
+        command_parts,
+    })
+}
+
+fn get_marked_folder_parts<'a>(from: &Path, to: &'a Path) -> Option<Vec<&'a str>> {
+    if !to.starts_with(from) {
+        return None;
+    }
+
+    let mut parts = Vec::new();
+
+    for ancestor in to.ancestors() {
+        if *ancestor == *from {
+            // We don't want to have to type root if we're in the root,
+            // so skip it if FOLDER_MARKER_FILE is present here
+            break;
+        }
+
+        // .file_name() returns directory name in case of directory
+        if ancestor.join(FOLDER_MARKER_FILE).is_file()
+            && let Some(directory_name) = ancestor.file_name()
+        {
+            parts.push(directory_name.to_str()?);
+        }
+    }
+
+    parts.reverse();
+
+    Some(parts)
+}
+
+/// Resolves a command-part list to a script path.
+///
+/// The input parts are joined with `.` and matched against the command name
+/// derived from `.jaofolder` ancestor directories plus the script file stem.
+pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
+    if let ControlFlow::Break(path) = for_each_discovered_script(root, |script| {
+        if script.matches_parts(parts) {
+            Ok(ControlFlow::Break(script.path.to_path_buf()))
+        } else {
+            Ok(ControlFlow::Continue(()))
+        }
+    })? {
+        return Ok(path);
+    }
+
+    Err(JaoError::ScriptNotFound {
+        script_name: parts.join(" "),
+    })
+}
+
+fn is_command_name_match(discovered_command_name: &str, script_name: &str) -> bool {
     if cfg!(windows) {
-        file_stem.eq_ignore_ascii_case(script_name)
+        discovered_command_name.eq_ignore_ascii_case(script_name)
     } else {
-        file_stem == script_name
+        discovered_command_name == script_name
     }
 }

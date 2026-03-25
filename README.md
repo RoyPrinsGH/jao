@@ -16,6 +16,7 @@ and thought "I just want to run the thing, not maintain another task runner", th
 
 - Recursive script discovery from the directory you run it in
 - A simple command style: `jao deploy api prod`
+- Optional `.jaofolder` markers to expose directory names as command prefixes
 - Cross-platform matching: `.sh` on Unix, `.bat` on Windows
 - Script fingerprinting for CI or locked-down runs
 - Trust tracking for local interactive use
@@ -29,6 +30,8 @@ The default build keeps a trust manifest so local runs are practical:
 ## How It Works
 
 `jao` joins positional arguments with dots and looks for a matching script file.
+Script file stems still define the tail of the command, while directories only
+show up in the command when they contain a `.jaofolder` marker file.
 
 Examples:
 
@@ -48,6 +51,19 @@ Then `jao` finds the matching `.sh` or `.bat` file somewhere under the current d
 
 That last part matters. A lot of repo scripts assume their working directory is the folder they live in. `jao` respects that.
 
+### Folder Markers
+
+If you have a script at `myapp/backend/scripts/build.sh` and both `myapp/` and
+`backend/` contain a `.jaofolder` file, then the command changes with where you
+run `jao`:
+
+- from outside `myapp/`: `jao myapp backend build`
+- from inside `myapp/`: `jao backend build`
+- from inside `myapp/backend/`: `jao build`
+
+Directories without `.jaofolder` stay invisible, so folders like `scripts/`
+can keep organizing files without polluting the command name.
+
 ## Common Commands
 
 List everything `jao` can run from the current repo:
@@ -55,6 +71,8 @@ List everything `jao` can run from the current repo:
 ```bash
 jao --list
 ```
+
+This prints logical command names together with the script path they resolve to.
 
 Print a script fingerprint:
 
