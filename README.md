@@ -1,4 +1,6 @@
-<img width="316" height="337" alt="Jao-Jao-Jao" src="https://github.com/user-attachments/assets/eb163b40-9283-458c-8d40-1fe94a3183f2" />
+<p align="center">
+  <img width="316" height="337" alt="Jao-Jao-Jao" src="https://github.com/user-attachments/assets/eb163b40-9283-458c-8d40-1fe94a3183f2" />
+</p>
 <br />
 
 `jao` finds repo scripts and lets you run them by name.
