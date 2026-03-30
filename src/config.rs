@@ -1,7 +1,6 @@
-//! Data models for `jao` configuration and runtime config state.
+//! Config loading and initialization.
 //!
-//! These types separate the persisted config file shape from the normalized
-//! runtime config used by the rest of the application.
+//! This module reads `config.toml`, and applies defaults and normalization.
 
 use std::collections::BTreeMap;
 #[cfg(feature = "trust-manifest")]
@@ -9,22 +8,31 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "trust-manifest")]
-use crate::trust::models::TrustedManifest;
+use crate::{JaoResult, storage};
 
 #[cfg(feature = "trust-manifest")]
 const DEFAULT_TRUSTFILE_NAME: &str = "jaotrusted.toml";
+const CONFIG_FILE_LOCATION: &str = "config.toml";
+const CURRENT_CONFIG_VERSION: u32 = 1;
 
-/// Current version of the persisted config format.
-pub(crate) const CURRENT_CONFIG_VERSION: u32 = 1;
+/// Loads the user's config from disk, creating it with defaults if needed.
+pub(crate) fn load_or_init() -> JaoResult<JaoConfig> {
+    let mut config_file = match storage::load_from_storage(CONFIG_FILE_LOCATION)? {
+        Some(config) => config,
+        None => {
+            let default_config = JaoConfigFile::default();
+            storage::write_to_storage(CONFIG_FILE_LOCATION, &default_config)?;
+            default_config
+        }
+    };
 
-#[cfg(feature = "trust-manifest")]
-fn default_trustfile() -> PathBuf {
-    PathBuf::from(DEFAULT_TRUSTFILE_NAME)
-}
+    // Apply version normalization if needed (e.g., bump version or migrate fields)
+    if config_file.version != CURRENT_CONFIG_VERSION {
+        config_file.version = CURRENT_CONFIG_VERSION;
+        storage::write_to_storage(CONFIG_FILE_LOCATION, &config_file)?;
+    }
 
-fn default_config_version() -> u32 {
-    CURRENT_CONFIG_VERSION
+    Ok(JaoConfig::from(config_file))
 }
 
 /// Normalized runtime configuration used by `jao`.
@@ -39,10 +47,11 @@ pub(crate) struct JaoConfig {
 }
 
 impl From<JaoConfigFile> for JaoConfig {
-    fn from(_config: JaoConfigFile) -> Self {
+    #[allow(unused_variables)]
+    fn from(config: JaoConfigFile) -> Self {
         Self {
             #[cfg(feature = "trust-manifest")]
-            trustfile: _config.trustfile,
+            trustfile: config.trustfile,
         }
     }
 }
@@ -78,16 +87,11 @@ impl Default for JaoConfigFile {
     }
 }
 
-/// Runtime context assembled from config and other loaded state.
-///
-/// In the default build this includes the loaded trust manifest alongside the
-/// normalized configuration.
-#[derive(Debug, Clone)]
-pub(crate) struct JaoContext {
-    // For now unused if config feature is on but trust-manifest feature is off,
-    // since trust-manifest is the only thing that uses the config
-    #[allow(dead_code)]
-    pub(crate) config: JaoConfig,
-    #[cfg(feature = "trust-manifest")]
-    pub(crate) trusted_manifest: TrustedManifest,
+#[cfg(feature = "trust-manifest")]
+fn default_trustfile() -> PathBuf {
+    PathBuf::from(DEFAULT_TRUSTFILE_NAME)
+}
+
+fn default_config_version() -> u32 {
+    CURRENT_CONFIG_VERSION
 }

@@ -4,8 +4,8 @@ use std::path::Path;
 use crate::{JaoResult, trust};
 
 pub(crate) fn fingerprint_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
-    let (_, fingerprint) = trust::fingerprint::fingerprint_file(script_path)?;
+    let (_, record) = trust::create_trust_record(script_path)?;
     let mut out = io::stdout().lock();
-    writeln!(out, "{fingerprint}")?;
+    writeln!(out, "{}", record.fingerprint)?;
     Ok(())
 }

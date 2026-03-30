@@ -3,17 +3,17 @@ use std::io::{self, IsTerminal, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+#[cfg(feature = "config")]
+use crate::config::JaoConfig;
 #[cfg(feature = "trust-manifest")]
-use crate::config::models::JaoContext;
-#[cfg(feature = "trust-manifest")]
-use crate::trust::models::ScriptTrustState;
+use crate::trust::{ScriptTrustState, TrustedManifest};
 use crate::{JaoError, JaoResult, trust};
 
 #[cfg(feature = "trust-manifest")]
-pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut JaoContext) -> JaoResult<()> {
+pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoConfig, manifest: &mut TrustedManifest) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
-    let trust_state = trust::manifest::get_script_trust(&canonical_path, &context.trusted_manifest)?;
+    let trust_state = trust::determine_script_trust_state(&canonical_path, manifest)?;
 
     if trust_state != ScriptTrustState::Trusted {
         if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
@@ -36,10 +36,10 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut
 
         let mut answer = String::new();
         io::stdin().read_line(&mut answer)?;
-        let answer = answer.trim().to_ascii_lowercase();
+        let answer_str = answer.trim();
 
-        if answer == "y" || answer == "yes" {
-            trust::manifest::write_script_trust_record(&canonical_path, context)?;
+        if answer_str.eq_ignore_ascii_case("y") || answer_str.eq_ignore_ascii_case("yes") {
+            trust::write_script_trust_record(&canonical_path, &config.trustfile, manifest)?;
         } else {
             return Err(JaoError::ScriptNotTrusted { path: canonical_path });
         }
@@ -51,13 +51,13 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, context: &mut
 pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &str) -> JaoResult<()> {
     let required_fingerprint = normalize_required_fingerprint(required_fingerprint)?;
 
-    let (canonical_path, actual_fingerprint) = trust::fingerprint::fingerprint_file(&script_path)?;
+    let (canonical_path, record) = trust::create_trust_record(&script_path)?;
 
-    if actual_fingerprint != required_fingerprint {
+    if record.fingerprint != required_fingerprint {
         return Err(JaoError::FingerprintMismatch {
             path: canonical_path,
             expected: required_fingerprint,
-            actual: actual_fingerprint,
+            actual: record.fingerprint,
         });
     }
 
@@ -65,8 +65,14 @@ pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, require
 }
 
 fn normalize_required_fingerprint(fingerprint: &str) -> JaoResult<String> {
-    let normalized = fingerprint.trim().to_ascii_lowercase();
-    let is_valid = normalized.len() == 64 && normalized.chars().all(|ch| ch.is_ascii_hexdigit());
+    let normalized = fingerprint
+        .trim()
+        .to_ascii_lowercase();
+
+    let is_valid = normalized.len() == 64
+        && normalized
+            .chars()
+            .all(|ch| ch.is_ascii_hexdigit());
 
     if is_valid {
         Ok(normalized)
@@ -80,13 +86,17 @@ fn normalize_required_fingerprint(fingerprint: &str) -> JaoResult<String> {
 fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     let script_path = script_path.as_ref();
 
-    let script_dir = script_path.parent().ok_or_else(|| JaoError::ScriptHasNoParent {
-        path: script_path.to_path_buf(),
-    })?;
+    let script_dir = script_path
+        .parent()
+        .ok_or_else(|| JaoError::ScriptHasNoParent {
+            path: script_path.to_path_buf(),
+        })?;
 
-    let script_file = script_path.file_name().ok_or_else(|| JaoError::ScriptHasNoFileName {
-        path: script_path.to_path_buf(),
-    })?;
+    let script_file = script_path
+        .file_name()
+        .ok_or_else(|| JaoError::ScriptHasNoFileName {
+            path: script_path.to_path_buf(),
+        })?;
 
     #[cfg(windows)]
     let status = Command::new("cmd")
@@ -133,7 +143,11 @@ fn is_executable(path: &Path) -> JaoResult<bool> {
     use std::os::unix::fs::PermissionsExt;
 
     let metadata = std::fs::metadata(path)?;
-    Ok(metadata.permissions().mode() & 0o111 != 0)
+    Ok(metadata
+        .permissions()
+        .mode()
+        & 0o111
+        != 0)
 }
 
 #[cfg(unix)]
@@ -159,5 +173,10 @@ fn parse_shebang(path: &Path) -> JaoResult<Option<(String, Vec<String>)>> {
         return Ok(None);
     };
 
-    Ok(Some((interpreter.to_string(), parts.map(ToString::to_string).collect())))
+    Ok(Some((
+        interpreter.to_string(),
+        parts
+            .map(ToString::to_string)
+            .collect(),
+    )))
 }

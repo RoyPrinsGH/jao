@@ -5,8 +5,14 @@ use assert_fs::fixture::{FileTouch, FileWriteStr, PathChild};
 #[test]
 fn fingerprint_is_stable_across_aliases_and_changes_with_canonical_path() {
     let workspace = TempDir::new().unwrap();
-    workspace.child("myapp/.jaofolder").touch().unwrap();
-    workspace.child("myapp/backend/.jaofolder").touch().unwrap();
+    workspace
+        .child("myapp/.jaofolder")
+        .touch()
+        .unwrap();
+    workspace
+        .child("myapp/backend/.jaofolder")
+        .touch()
+        .unwrap();
     workspace
         .child(format!("myapp/backend/scripts/build.{}", script_extension()))
         .write_str(&script_contents("echo fingerprint"))
@@ -17,8 +23,20 @@ fn fingerprint_is_stable_across_aliases_and_changes_with_canonical_path() {
         .unwrap();
 
     let root_fp = fingerprint_output(workspace.path(), None, &["myapp", "backend", "build"]);
-    let myapp_fp = fingerprint_output(workspace.child("myapp").path(), None, &["backend", "build"]);
-    let backend_fp = fingerprint_output(workspace.child("myapp/backend").path(), None, &["build"]);
+    let myapp_fp = fingerprint_output(
+        workspace
+            .child("myapp")
+            .path(),
+        None,
+        &["backend", "build"],
+    );
+    let backend_fp = fingerprint_output(
+        workspace
+            .child("myapp/backend")
+            .path(),
+        None,
+        &["build"],
+    );
     let other_fp = fingerprint_output(workspace.path(), None, &["build"]);
 
     assert_eq!(root_fp, myapp_fp);
@@ -43,7 +61,12 @@ fn ci_run_requires_matching_fingerprint() {
         .get_output()
         .stdout
         .clone();
-    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "ci-run");
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "ci-run"
+    );
 
     command_for(workspace.path(), None)
         .args([
@@ -78,7 +101,9 @@ fn trusted_manifest_allows_run_and_reports_modified_after_change() {
     let workspace = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
     let script = workspace.child(format!("scripts/check.{}", script_extension()));
-    script.write_str(&script_contents("echo trusted")).unwrap();
+    script
+        .write_str(&script_contents("echo trusted"))
+        .unwrap();
 
     let fingerprint = fingerprint_output(workspace.path(), Some(home.path()), &["check"]);
     write_trust_manifest(home.path(), script.path(), fingerprint.trim());
@@ -90,18 +115,43 @@ fn trusted_manifest_allows_run_and_reports_modified_after_change() {
         .get_output()
         .stdout
         .clone();
-    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "trusted");
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "trusted"
+    );
 
     let trusted_list = list_output(workspace.path(), Some(home.path()));
     assert!(trusted_list.contains("trusted"));
     assert!(trusted_list.contains("check"));
-    assert!(trusted_list.contains(script.path().file_name().unwrap().to_str().unwrap()));
+    assert!(
+        trusted_list.contains(
+            script
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        )
+    );
 
-    script.write_str(&script_contents("echo modified")).unwrap();
+    script
+        .write_str(&script_contents("echo modified"))
+        .unwrap();
 
     let modified_list = list_output(workspace.path(), Some(home.path()));
     assert!(modified_list.contains("modified"));
-    assert!(modified_list.contains(script.path().file_name().unwrap().to_str().unwrap()));
+    assert!(
+        modified_list.contains(
+            script
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        )
+    );
 
     command_for(workspace.path(), Some(home.path()))
         .arg("check")
@@ -111,14 +161,27 @@ fn trusted_manifest_allows_run_and_reports_modified_after_change() {
 }
 
 fn list_output(cwd: &std::path::Path, home: Option<&std::path::Path>) -> String {
-    let output = command_for(cwd, home).arg("--list").assert().success().get_output().stdout.clone();
+    let output = command_for(cwd, home)
+        .arg("--list")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
     String::from_utf8(output).unwrap()
 }
 
 fn fingerprint_output(cwd: &std::path::Path, home: Option<&std::path::Path>, parts: &[&str]) -> String {
     let mut command = command_for(cwd, home);
-    command.arg("--fingerprint").args(parts);
-    let output = command.assert().success().get_output().stdout.clone();
+    command
+        .arg("--fingerprint")
+        .args(parts);
+    let output = command
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
     String::from_utf8(output).unwrap()
 }
 

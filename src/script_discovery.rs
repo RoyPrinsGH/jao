@@ -37,15 +37,21 @@ pub(crate) struct DiscoveredScript<'a> {
 
 impl<'a> DiscoveredScript<'a> {
     pub(crate) fn make_command_display(&self) -> String {
-        self.command_parts.join(" ")
+        self.command_parts
+            .join(" ")
     }
     pub(crate) fn matches_parts(&self, parts: &[String]) -> bool {
-        self.command_parts.len() == parts.len()
-            && self
-                .command_parts
-                .iter()
-                .zip(parts)
-                .all(|(command_part, input_part)| is_command_name_match(command_part, input_part))
+        self.command_parts
+            .len()
+            == parts.len()
+            && command_parts_match(
+                self.command_parts
+                    .iter()
+                    .copied(),
+                parts
+                    .iter()
+                    .map(String::as_str),
+            )
     }
 }
 
@@ -82,8 +88,12 @@ fn build_walk_dir(root: &Path) -> Walk {
 }
 
 fn is_script(dir_entry: &DirEntry) -> bool {
-    dir_entry.file_type().is_some_and(|file_type| file_type.is_file())
-        && Path::new(dir_entry.file_name()).extension().is_some_and(is_supported_script_extension)
+    dir_entry
+        .file_type()
+        .is_some_and(|file_type| file_type.is_file())
+        && Path::new(dir_entry.file_name())
+            .extension()
+            .is_some_and(is_supported_script_extension)
 }
 
 fn is_supported_script_extension(ext: &OsStr) -> bool {
@@ -94,7 +104,11 @@ fn is_supported_script_extension(ext: &OsStr) -> bool {
 }
 
 fn into_discovered_script<'a>(root: &Path, script_path: &'a Path) -> Option<DiscoveredScript<'a>> {
-    let script_path_parts = script_path.file_stem()?.to_str()?.split('.').collect();
+    let script_path_parts = script_path
+        .file_stem()?
+        .to_str()?
+        .split('.')
+        .collect();
 
     let command_parts = if let Some(parent) = script_path.parent()
         && let Some(marked_folder_parts) = get_marked_folder_parts(root, parent)
@@ -125,7 +139,9 @@ fn get_marked_folder_parts<'a>(from: &Path, to: &'a Path) -> Option<Vec<&'a str>
         }
 
         // .file_name() returns directory name in case of directory
-        if ancestor.join(FOLDER_MARKER_FILE).is_file()
+        if ancestor
+            .join(FOLDER_MARKER_FILE)
+            .is_file()
             && let Some(directory_name) = ancestor.file_name()
         {
             parts.push(directory_name.to_str()?);
@@ -144,7 +160,11 @@ fn get_marked_folder_parts<'a>(from: &Path, to: &'a Path) -> Option<Vec<&'a str>
 pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoResult<PathBuf> {
     if let ControlFlow::Break(path) = for_each_discovered_script(root, |script| {
         if script.matches_parts(parts) {
-            Ok(ControlFlow::Break(script.path.to_path_buf()))
+            Ok(ControlFlow::Break(
+                script
+                    .path
+                    .to_path_buf(),
+            ))
         } else {
             Ok(ControlFlow::Continue(()))
         }
@@ -155,6 +175,26 @@ pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: &[String]) -> JaoRes
     Err(JaoError::ScriptNotFound {
         script_name: parts.join(" "),
     })
+}
+
+pub(crate) fn command_parts_match<'a>(
+    discovered_command_parts: impl IntoIterator<Item = &'a str>,
+    input_parts: impl IntoIterator<Item = &'a str>,
+) -> bool {
+    discovered_command_parts
+        .into_iter()
+        .zip(input_parts)
+        .all(|(discovered_command_part, input_part)| is_command_name_match(discovered_command_part, input_part))
+}
+
+pub(crate) fn command_part_has_prefix(discovered_command_name: &str, input_prefix: &str) -> bool {
+    if cfg!(windows) {
+        discovered_command_name
+            .get(..input_prefix.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(input_prefix))
+    } else {
+        discovered_command_name.starts_with(input_prefix)
+    }
 }
 
 fn is_command_name_match(discovered_command_name: &str, script_name: &str) -> bool {

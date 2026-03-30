@@ -18,6 +18,7 @@ Just run `cargo install jao` ;)
 - Supports `.jaofolder` to expose directory names in commands
 - Supports recursive `.jaoignore` files to hide scripts or whole areas
 - Supports trust prompts for local use and fingerprints for CI
+- Prints shell completion scripts for Bash and Zsh
 
 **`jao` runs scripts from the script's own directory, so existing scripts that rely on relative paths keep working.**
 
@@ -42,6 +43,28 @@ jao --list
 ```
 
 This is the default model: command parts map to script stems like `check`, `test.integration`, and `db.reset.local`.
+
+## Shell Completion
+
+Bash:
+
+```bash
+source <(jao --completions bash)
+```
+
+Zsh:
+
+```zsh
+source <(jao --completions zsh)
+```
+
+Then `jao` can complete discovered script parts from the current directory:
+
+```text
+jao m<TAB>         -> myapp
+jao myapp <TAB>    -> backend frontend
+jao myapp backend b<TAB> -> build
+```
 
 ## Example 2: `.jaofolder` In A Multi-Project Repo
 
