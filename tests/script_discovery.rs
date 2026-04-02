@@ -1,47 +1,82 @@
+use std::path::{Path, PathBuf};
+
 use assert_cmd::Command;
 use assert_fs::TempDir;
 use assert_fs::fixture::{FileTouch, FileWriteStr, PathChild};
-use std::path::{Path, PathBuf};
 
 #[test]
 fn jaofolder_commands_change_with_current_directory() {
     let workspace = TempDir::new().unwrap();
-    workspace.child(Path::new("myapp").join(".jaofolder")).touch().unwrap();
-    workspace.child(Path::new("myapp").join("backend").join(".jaofolder")).touch().unwrap();
+    workspace
+        .child(Path::new("myapp").join(".jaofolder"))
+        .touch()
+        .unwrap();
+    workspace
+        .child(
+            Path::new("myapp")
+                .join("backend")
+                .join(".jaofolder"),
+        )
+        .touch()
+        .unwrap();
     workspace
         .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
         .write_str(script_contents())
         .unwrap();
 
     let root_output = list_output(workspace.path());
-    let myapp_output = list_output(workspace.child(Path::new("myapp")).path());
-    let backend_output = list_output(workspace.child(Path::new("myapp").join("backend")).path());
+    let myapp_output = list_output(
+        workspace
+            .child(Path::new("myapp"))
+            .path(),
+    );
+    let backend_output = list_output(
+        workspace
+            .child(Path::new("myapp").join("backend"))
+            .path(),
+    );
 
     assert_eq!(
         root_output,
         list_line(
             "myapp backend build",
-            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
+            workspace
+                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+                .path(),
         )
     );
     assert_eq!(
         myapp_output,
         list_line(
             "backend build",
-            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
+            workspace
+                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+                .path(),
         )
     );
     assert_eq!(
         backend_output,
         list_line(
             "build",
-            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "build")).path(),
+            workspace
+                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+                .path(),
         )
     );
 
     let root_fingerprint = fingerprint_output(workspace.path(), &["myapp", "backend", "build"]);
-    let myapp_fingerprint = fingerprint_output(workspace.child(Path::new("myapp")).path(), &["backend", "build"]);
-    let backend_fingerprint = fingerprint_output(workspace.child(Path::new("myapp").join("backend")).path(), &["build"]);
+    let myapp_fingerprint = fingerprint_output(
+        workspace
+            .child(Path::new("myapp"))
+            .path(),
+        &["backend", "build"],
+    );
+    let backend_fingerprint = fingerprint_output(
+        workspace
+            .child(Path::new("myapp").join("backend"))
+            .path(),
+        &["build"],
+    );
 
     assert_eq!(root_fingerprint, myapp_fingerprint);
     assert_eq!(myapp_fingerprint, backend_fingerprint);
@@ -50,15 +85,32 @@ fn jaofolder_commands_change_with_current_directory() {
 #[test]
 fn recursive_jaoignore_hides_nested_matches() {
     let workspace = TempDir::new().unwrap();
-    workspace.child(".jaofolder").touch().unwrap();
+    workspace
+        .child(".jaofolder")
+        .touch()
+        .unwrap();
     workspace
         .child(".jaoignore")
         .write_str(&format!("ignored/\nskip-me.{}\n", script_extension()))
         .unwrap();
-    workspace.child(Path::new("myapp").join(".jaofolder")).touch().unwrap();
-    workspace.child(Path::new("myapp").join("backend").join(".jaofolder")).touch().unwrap();
     workspace
-        .child(Path::new("myapp").join("backend").join(".jaoignore"))
+        .child(Path::new("myapp").join(".jaofolder"))
+        .touch()
+        .unwrap();
+    workspace
+        .child(
+            Path::new("myapp")
+                .join("backend")
+                .join(".jaofolder"),
+        )
+        .touch()
+        .unwrap();
+    workspace
+        .child(
+            Path::new("myapp")
+                .join("backend")
+                .join(".jaoignore"),
+        )
         .write_str(format!("build.{}\n", script_extension()).as_str())
         .unwrap();
     workspace
@@ -73,14 +125,19 @@ fn recursive_jaoignore_hides_nested_matches() {
         .child(script_rel_path(&["ignored", "scripts"], "nope"))
         .write_str(script_contents())
         .unwrap();
-    workspace.child(script_rel_path(&[], "skip-me")).write_str(script_contents()).unwrap();
+    workspace
+        .child(script_rel_path(&[], "skip-me"))
+        .write_str(script_contents())
+        .unwrap();
 
     let output = list_output(workspace.path());
     assert_eq!(
         output,
         list_line(
             "myapp backend keep",
-            workspace.child(script_rel_path(&["myapp", "backend", "scripts"], "keep")).path(),
+            workspace
+                .child(script_rel_path(&["myapp", "backend", "scripts"], "keep"))
+                .path(),
         )
     );
 
@@ -94,18 +151,35 @@ fn recursive_jaoignore_hides_nested_matches() {
 }
 
 fn list_output(cwd: &std::path::Path) -> String {
-    let output = command_for(cwd).args(["--ci", "--list"]).assert().success().get_output().stdout.clone();
+    let output = command_for(cwd)
+        .args(["--ci", "--list"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
     String::from_utf8(output).unwrap()
 }
 
 fn fingerprint_output(cwd: &std::path::Path, parts: &[&str]) -> String {
     let mut command = command_for(cwd);
-    command.arg("--fingerprint").args(parts);
-    let output = command.assert().success().get_output().stdout.clone();
+    command
+        .arg("--fingerprint")
+        .args(parts);
+    let output = command
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
     String::from_utf8(output).unwrap()
 }
 
 fn list_line(command: &str, path: &std::path::Path) -> String {
+    #[cfg(feature = "trust-manifest")]
+    return format!("unknown \t {command} \t\t {}\n", path.display());
+
+    #[cfg(not(feature = "trust-manifest"))]
     format!("{command} \t\t {}\n", path.display())
 }
 

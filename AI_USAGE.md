@@ -1,0 +1,1 @@
+Both `GPT-5.3-Codex` and `Qwen3-coder-next` were used in this project for scaffolding, refactoring work and test generation

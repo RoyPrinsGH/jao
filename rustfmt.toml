@@ -2,3 +2,4 @@ max_width = 150
 struct_variant_width = 100
 imports_granularity = "Module"
 group_imports = "StdExternalCrate"
+chain_width = 1
