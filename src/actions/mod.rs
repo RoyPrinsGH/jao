@@ -15,16 +15,16 @@ pub(crate) use completion::{CompletionRequest, Shell, complete, print_shell_comp
 pub(crate) use fingerprint::fingerprint_script;
 /// Help text rendering action.
 pub(crate) use info::print_help;
-#[cfg(not(feature = "trust-manifest"))]
 /// Script listing action without trust labels.
 ///
 /// Used when trust-manifest support is disabled.
+#[cfg(not(feature = "trust-manifest"))]
 pub(crate) use list::list_scripts;
-#[cfg(feature = "trust-manifest")]
 /// Script listing action with trust labels.
+#[cfg(feature = "trust-manifest")]
 pub(crate) use list::list_scripts_with_trust_status;
 /// Script execution with explicit fingerprint verification.
 pub(crate) use run::run_script_with_fingerprint;
-#[cfg(feature = "trust-manifest")]
 /// Script execution with interactive trust workflow.
+#[cfg(feature = "trust-manifest")]
 pub(crate) use run::run_script_with_trust;

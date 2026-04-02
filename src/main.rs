@@ -45,6 +45,29 @@
 //! jao myapp <TAB> -> backend frontend
 //! ```
 //!
+//! # Completions
+//!
+//! `jao` supports two completion surfaces:
+//!
+//! - static completion script output via `jao --completions <bash|zsh>`
+//! - dynamic candidate generation via the hidden `jao __complete` protocol
+//!
+//! The generated shell scripts call:
+//!
+//! ```text
+//! jao __complete --index <CURRENT_WORD_INDEX> -- <WORDS_AFTER_JAO...>
+//! ```
+//!
+//! The internal protocol then returns one completion candidate per line.
+//! Suggestions are context-aware and include:
+//!
+//! - top-level options (`--help`, `--list`, etc.)
+//! - shell names after `--completions`
+//! - script command parts discovered from the current working directory
+//!
+//! Dynamic script-part completion respects the same discovery rules as command
+//! execution, including `.jaofolder` path markers and recursive `.jaoignore`.
+//!
 //! # `.jaofolder` and `.jaoignore`
 //!
 //! `.jaofolder` files mark directories that should appear in the command name.
@@ -102,20 +125,24 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use ignore::Error as IgnoreError;
 use thiserror::Error;
 
-#[cfg(not(feature = "trust-manifest"))]
-use crate::actions::list_scripts;
-use crate::actions::{CompletionRequest, Shell, fingerprint_script, run_script_with_fingerprint};
-#[cfg(feature = "trust-manifest")]
-use crate::actions::{list_scripts_with_trust_status, run_script_with_trust};
+use crate::actions::{CompletionRequest, Shell};
 
 mod actions;
 mod platform;
 mod script_discovery;
-mod storage;
 mod trust;
 
 #[cfg(feature = "config")]
+// Currently, the config is only used for trust-manifest.
+// hence config specific calls are only called in trust manifest code, causing
+// dead code if only the config feature is on. So we allow it.
+#[cfg_attr(not(feature = "trust-manifest"), allow(dead_code))]
 mod config;
+
+#[cfg(feature = "config")]
+// See above
+#[cfg_attr(not(feature = "trust-manifest"), allow(dead_code))]
+mod storage;
 
 type JaoResult<T> = Result<T, JaoError>;
 
@@ -145,8 +172,8 @@ enum JaoError {
     #[error(transparent)]
     TomlSerialize(#[from] toml::ser::Error),
 
-    #[cfg(feature = "trust-manifest")]
-    #[error("invalid trustfile path: {path}")]
+    #[cfg(feature = "config")]
+    #[error("invalid storage path: {path}")]
     InvalidStoragePath { path: PathBuf },
 
     #[error("script {script_name} not found")]
@@ -226,35 +253,35 @@ fn __main() -> JaoResult<()> {
         #[cfg(not(feature = "trust-manifest"))]
         CliAction::List => {
             let root = std::env::current_dir()?;
-            list_scripts(root)
+            actions::list_scripts(root)
         }
         #[cfg(feature = "trust-manifest")]
         CliAction::List => {
             let root = std::env::current_dir()?;
             let config = config::load_or_init()?;
-            let trusted_manifest = trust::load_or_init(&config)?;
-            list_scripts_with_trust_status(root, &trusted_manifest)
+            let trusted_manifest = trust::manifest::load_or_init(&config)?;
+            actions::list_scripts_with_trust_status(root, &trusted_manifest)
         }
         CliAction::Fingerprint { parts } => {
             let root = std::env::current_dir()?;
             let script_path = script_discovery::resolve_script(root, parts)?;
-            fingerprint_script(script_path)
+            actions::fingerprint_script(script_path)
         }
         CliAction::RunFingerprinted { parts, required_fingerprint } => {
             let root = std::env::current_dir()?;
             let script_path = script_discovery::resolve_script(root, parts)?;
-            run_script_with_fingerprint(script_path, required_fingerprint)
+            actions::run_script_with_fingerprint(script_path, required_fingerprint)
         }
-        CliAction::Run { .. } if context.ci => Err(JaoError::CiRunRequiresFingerprint),
+        CliAction::RunUntrusted { .. } if context.ci => Err(JaoError::CiRunRequiresFingerprint),
         #[cfg(not(feature = "trust-manifest"))]
-        CliAction::Run { .. } => Err(JaoError::RunWithoutTrustManifestRequiresFingerprint),
+        CliAction::RunUntrusted { .. } => Err(JaoError::RunWithoutTrustManifestRequiresFingerprint),
         #[cfg(feature = "trust-manifest")]
-        CliAction::Run { parts } => {
+        CliAction::RunUntrusted { parts } => {
             let root = std::env::current_dir()?;
             let script_path = script_discovery::resolve_script(root, parts)?;
             let config = config::load_or_init()?;
-            let mut trusted_manifest = trust::load_or_init(&config)?;
-            run_script_with_trust(script_path, &config, &mut trusted_manifest)
+            let mut trusted_manifest = trust::manifest::load_or_init(&config)?;
+            actions::run_script_with_trust(script_path, &config, &mut trusted_manifest)
         }
     }
 }
@@ -323,9 +350,17 @@ enum CliAction<'a> {
     Help,
     PrintCompletionsForShell(Shell),
     List,
-    Fingerprint { parts: Vec<&'a OsStr> },
-    RunFingerprinted { parts: Vec<&'a OsStr>, required_fingerprint: &'a OsStr },
-    Run { parts: Vec<&'a OsStr> },
+    Fingerprint {
+        parts: Vec<&'a OsStr>,
+    },
+    RunFingerprinted {
+        parts: Vec<&'a OsStr>,
+        required_fingerprint: &'a OsStr,
+    },
+    RunUntrusted {
+        #[cfg_attr(not(feature = "trust-manifest"), allow(dead_code))]
+        parts: Vec<&'a OsStr>,
+    },
 }
 
 impl<'a> TryFrom<&'a ArgMatches> for CliAction<'a> {
@@ -358,7 +393,7 @@ impl<'a> TryFrom<&'a ArgMatches> for CliAction<'a> {
                 parts: parts.collect(),
                 required_fingerprint,
             }),
-            (None, Some(parts)) => Ok(CliAction::Run { parts: parts.collect() }),
+            (None, Some(parts)) => Ok(CliAction::RunUntrusted { parts: parts.collect() }),
             (None, None) => Ok(CliAction::Help),
             (Some(_), None) => Err(JaoError::InvalidArguments("missing script command after --require-fingerprint")),
         }

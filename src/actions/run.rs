@@ -4,12 +4,12 @@ use std::io::{self, IsTerminal, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-#[cfg(feature = "config")]
+#[cfg(feature = "trust-manifest")]
 use crate::config::JaoConfig;
 #[cfg(unix)]
 use crate::platform::unix::{is_executable, parse_shebang};
 #[cfg(feature = "trust-manifest")]
-use crate::trust::{ScriptTrustState, TrustedManifest};
+use crate::trust::manifest::{ScriptTrustState, TrustedManifest};
 use crate::{JaoError, JaoResult, trust};
 
 #[cfg(feature = "trust-manifest")]
@@ -23,7 +23,7 @@ use crate::{JaoError, JaoResult, trust};
 pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoConfig, manifest: &mut TrustedManifest) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
-    let trust_state = trust::determine_script_trust_state(&canonical_path, manifest)?;
+    let trust_state = trust::manifest::determine_script_trust_state(&canonical_path, manifest)?;
 
     if trust_state != ScriptTrustState::Trusted {
         if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
@@ -49,7 +49,7 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoC
         let answer_str = answer.trim();
 
         if answer_str.eq_ignore_ascii_case("y") || answer_str.eq_ignore_ascii_case("yes") {
-            trust::write_script_trust_record(&canonical_path, &config.trustfile, manifest)?;
+            trust::manifest::write_script_trust_record(&canonical_path, &config.trustfile, manifest)?;
         } else {
             return Err(JaoError::ScriptNotTrusted { path: canonical_path });
         }
