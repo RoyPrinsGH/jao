@@ -12,7 +12,7 @@ use crate::{JaoResult, script_discovery};
 ///
 /// Output format: `<trust>\t<command>\t\t<resolved_path>`.
 ///
-/// `trust` values map to [`crate::trust::ScriptTrustState`] display labels.
+/// `trust` values map to [`crate::trust::manifest::ScriptTrustState`] display labels.
 #[cfg(feature = "trust-manifest")]
 pub(crate) fn list_scripts_with_trust_status(root: impl AsRef<Path>, manifest: &TrustedManifest) -> JaoResult<()> {
     let mut out = io::stdout().lock();

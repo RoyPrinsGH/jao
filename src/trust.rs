@@ -7,7 +7,7 @@
 //!
 //! - [`create_trust_record`]: computes a stable SHA-256 digest from a script's
 //!   canonical path and contents
-//! - [`TrustedManifest`]: stores the last trusted fingerprint per
+//! - [`manifest::TrustedManifest`]: stores the last trusted fingerprint per
 //!   canonical script path
 //!
 //! In normal CLI usage these details are mostly internal, but documenting them
