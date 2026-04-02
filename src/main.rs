@@ -217,21 +217,21 @@ fn __main() -> JaoResult<()> {
 }
 
 fn __exit(final_result: JaoResult<()>) -> ! {
-    if let Err(error) = &final_result {
-        eprintln!("error: {error}");
+    match &final_result {
+        Err(JaoError::Clap(clap_err)) => {
+            clap_err
+                .print()
+                .unwrap();
+        }
+        Err(error) => eprintln!("error: {error}"),
+        _ => (),
     }
 
     let exit_code = match final_result {
         Ok(_) => 0,
         // not our fault
         Err(JaoError::Io(io_err)) if io_err.kind() == IoErrorKind::BrokenPipe => 0,
-        Err(JaoError::InvalidArguments(_)) => 2,
-        Err(JaoError::Clap(clap_err)) => {
-            clap_err
-                .print()
-                .unwrap();
-            2
-        }
+        Err(JaoError::InvalidArguments(_)) | Err(JaoError::Clap(_)) => 2,
         Err(_) => 1,
     };
 
