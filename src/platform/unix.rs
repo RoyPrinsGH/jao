@@ -62,9 +62,7 @@ fn parse_shebang_line(first_line: &str) -> Option<Shebang> {
     }
 
     let remainder = shebang_data[first_whitespace_ix..].trim_start();
-    let argument = remainder
-        .is_empty()
-        .then(|| String::from(remainder));
+    let argument = (!remainder.is_empty()).then(|| remainder.to_string());
 
     Some(Shebang { interpreter, argument })
 }
@@ -120,5 +118,43 @@ mod tests {
     #[test]
     fn rejects_empty_shebangs() {
         assert_eq!(parse_shebang_line("#!   \n"), None);
+    }
+
+    #[test]
+    fn rejects_lines_without_shebang_marker() {
+        assert_eq!(parse_shebang_line("/usr/bin/env python3\n"), None);
+    }
+
+    #[test]
+    fn parses_shebang_without_trailing_newline() {
+        assert_eq!(
+            parse_shebang_line("#!/usr/bin/python3 -u"),
+            Some(Shebang {
+                interpreter: "/usr/bin/python3".to_string(),
+                argument: Some("-u".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn ignores_trailing_whitespace_without_creating_empty_argument() {
+        assert_eq!(
+            parse_shebang_line("#!/bin/sh   \t\n"),
+            Some(Shebang {
+                interpreter: "/bin/sh".to_string(),
+                argument: None,
+            })
+        );
+    }
+
+    #[test]
+    fn preserves_internal_whitespace_in_raw_argument() {
+        assert_eq!(
+            parse_shebang_line("#!/usr/bin/env   -S   python3   -u\n"),
+            Some(Shebang {
+                interpreter: "/usr/bin/env".to_string(),
+                argument: Some("-S   python3   -u".to_string()),
+            })
+        );
     }
 }

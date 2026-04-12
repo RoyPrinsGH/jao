@@ -289,3 +289,49 @@ impl<'a> ScriptParts<'a> {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+
+    use super::ScriptParts;
+
+    #[test]
+    fn script_stem_splits_into_command_parts() {
+        assert_eq!(
+            ScriptParts::from_script_stem(OsStr::new("build.docker.local")),
+            ScriptParts::from(vec![OsStr::new("build"), OsStr::new("docker"), OsStr::new("local"),])
+        );
+    }
+
+    #[test]
+    fn exact_match_requires_same_length() {
+        let discovered = ScriptParts::from(vec![OsStr::new("build"), OsStr::new("local")]);
+        let prefix_only = ScriptParts::from(vec![OsStr::new("build")]);
+
+        assert!(!discovered.matches_exactly(&prefix_only));
+    }
+
+    #[test]
+    fn next_part_is_returned_for_matching_prefix() {
+        let discovered = ScriptParts::from(vec![OsStr::new("db"), OsStr::new("reset"), OsStr::new("local")]);
+        let partial = ScriptParts::from(vec![OsStr::new("db")]);
+
+        assert_eq!(discovered.try_get_next_part_after(&partial), Some(OsStr::new("reset")));
+    }
+
+    #[test]
+    fn next_part_is_none_for_non_matching_prefix() {
+        let discovered = ScriptParts::from(vec![OsStr::new("db"), OsStr::new("reset")]);
+        let partial = ScriptParts::from(vec![OsStr::new("build")]);
+
+        assert_eq!(discovered.try_get_next_part_after(&partial), None);
+    }
+
+    #[test]
+    fn display_joins_parts_with_spaces() {
+        let parts = ScriptParts::from(vec![OsStr::new("myapp"), OsStr::new("backend"), OsStr::new("build")]);
+
+        assert_eq!(parts.display(), OsStr::new("myapp backend build"));
+    }
+}

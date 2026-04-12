@@ -45,3 +45,36 @@ pub(crate) fn split_on_dot<'a>(value: &'a OsStr) -> Vec<&'a OsStr> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+
+    use super::{split_on_dot, starts_with};
+
+    #[test]
+    fn starts_with_matches_prefix() {
+        assert!(starts_with(OsStr::new("build.local"), OsStr::new("build")));
+    }
+
+    #[test]
+    fn starts_with_rejects_non_prefix() {
+        assert!(!starts_with(OsStr::new("build.local"), OsStr::new("local")));
+    }
+
+    #[test]
+    fn split_on_dot_splits_each_segment() {
+        assert_eq!(
+            split_on_dot(OsStr::new("build.docker.local")),
+            vec![OsStr::new("build"), OsStr::new("docker"), OsStr::new("local")]
+        );
+    }
+
+    #[test]
+    fn split_on_dot_preserves_empty_segments() {
+        assert_eq!(
+            split_on_dot(OsStr::new("build..local")),
+            vec![OsStr::new("build"), OsStr::new(""), OsStr::new("local")]
+        );
+    }
+}
