@@ -81,6 +81,29 @@ fn ci_run_requires_matching_fingerprint() {
         .stderr(predicates::str::contains("fingerprint mismatch"));
 }
 
+#[cfg(unix)]
+#[test]
+fn ci_run_uses_complex_shebang_for_non_executable_script() {
+    let workspace = TempDir::new().unwrap();
+    let script_name = "complex-shebang";
+    workspace
+        .child(format!("scripts/{script_name}.{}", script_extension()))
+        .write_str("#!/usr/bin/env -S sh -eu\nprintf 'complex-shebang\\n'\n")
+        .unwrap();
+
+    let fingerprint = fingerprint_output(workspace.path(), None, &[script_name]);
+
+    let output = command_for(workspace.path(), None)
+        .args(["--ci", "--require-fingerprint", fingerprint.trim(), script_name])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(String::from_utf8(output).unwrap(), "complex-shebang\n");
+}
+
 #[test]
 fn noninteractive_unknown_trust_fails() {
     let workspace = TempDir::new().unwrap();

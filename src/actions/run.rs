@@ -136,9 +136,14 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()?
-    } else if let Some((interpreter, interpreter_args)) = parse_shebang(script_path)? {
-        Command::new(interpreter)
-            .args(interpreter_args)
+    } else if let Some(shebang) = parse_shebang(script_path)? {
+        let mut command = Command::new(shebang.interpreter);
+
+        if let Some(argument) = shebang.argument {
+            command.arg(argument);
+        }
+
+        command
             .arg(script_file)
             .current_dir(script_dir)
             .stdin(Stdio::inherit())
