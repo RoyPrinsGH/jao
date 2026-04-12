@@ -1,0 +1,61 @@
+name: Jao GitHub release assets
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: create GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release entry
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+  build-binaries:
+    name: build binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary_name: jao
+            asset_extension: ""
+          - os: macos-latest
+            binary_name: jao
+            asset_extension: ""
+          - os: windows-latest
+            binary_name: jao.exe
+            asset_extension: ".exe"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          mkdir -p dist
+          asset_name="jao-${{ runner.os }}-${{ runner.arch }}${{ matrix.asset_extension }}"
+          cp "target/release/${{ matrix.binary_name }}" "dist/${asset_name}"
+
+      - name: Upload asset to GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" dist/* --clobber
