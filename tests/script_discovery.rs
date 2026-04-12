@@ -176,11 +176,13 @@ fn fingerprint_output(cwd: &std::path::Path, parts: &[&str]) -> String {
 }
 
 fn list_line(command: &str, path: &std::path::Path) -> String {
+    let display_path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+
     #[cfg(feature = "trust-manifest")]
-    return format!("unknown \t {command} \t\t {}\n", path.display());
+    return format!("unknown \t {command} \t\t {}\n", display_path.display());
 
     #[cfg(not(feature = "trust-manifest"))]
-    format!("{command} \t\t {}\n", path.display())
+    format!("{command} \t\t {}\n", display_path.display())
 }
 
 fn script_rel_path(directories: &[&str], stem: &str) -> PathBuf {
