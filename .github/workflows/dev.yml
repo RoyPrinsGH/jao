@@ -82,3 +82,13 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: jao:ci
+
+      - name: Build Docker image without trust manifest
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            CARGO_BUILD_ARGS=--no-default-features
+          push: false
+          tags: jao:ci-no-manifest
