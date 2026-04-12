@@ -3,28 +3,17 @@
 </p>
 <br />
 
-`jao` finds repo scripts and lets you run them by name.
+`jao` runs scripts as if you made your own, repo specific CLI
 
-It is meant for repos that already have shell or batch scripts and want a thin CLI on top, not a bigger task runner.
+Compared with tools like `make`, `just`, or `npm run`, `jao` is a better fit when:
 
-## Installation
+- you don't want to commit to a full task runner, and want something both seamlessly added and seamlessly removed from your workflow
+- the scripts already exist and you do not want to rewrite them
+- the same script names appear in multiple subprojects
+- you want commands to get shorter as you move deeper into the repo (as in, jao is aware of your current working directory)
+- you want changes in scripts to enforce detectable changes in anything depending on them, with the fingerprinting system
 
-Just run `cargo install jao` ;)
-
-## What It Does
-
-- Finds runnable scripts under the directory you start from
-- Matches `.sh` on Unix and `.bat` on Windows
-- Lets you run scripts by command parts instead of file paths
-- Respects `.gitignore` during discovery
-- Supports `.jaofolder` to expose directory names in commands
-- Supports recursive `.jaoignore` files to hide scripts or whole areas
-- Supports trust prompts for local use and fingerprints for CI
-- Prints shell completion scripts for Bash and Zsh
-
-**`jao` runs scripts from the script's own directory, so existing scripts that rely on relative paths keep working.**
-
-## Example 1: Basic Use
+## Quick Start
 
 Repo:
 
@@ -38,13 +27,26 @@ scripts/
 Commands:
 
 ```bash
+jao --list
 jao check
 jao test integration
 jao db reset local
-jao --list
 ```
 
 This is the default model: command parts map to script stems like `check`, `test.integration`, and `db.reset.local`.
+
+## What It Does
+
+- Finds runnable scripts under the directory you start from
+- Matches `.sh` on Unix and `.bat` on Windows
+- Lets you run scripts by command parts instead of file paths
+- Respects `.gitignore` during discovery
+- Supports `.jaofolder` to expose directory names in commands
+- Supports recursive `.jaoignore` files to hide scripts or whole areas
+- Supports trust prompts for local use and fingerprints for CI
+- Prints shell completion scripts for Bash and Zsh
+
+**`jao` runs scripts from the script's own directory, so existing scripts that rely on relative paths keep working.**
 
 ## Shell Completion
 
@@ -67,6 +69,8 @@ jao m<TAB>         -> myapp
 jao myapp <TAB>    -> backend frontend
 jao myapp backend b<TAB> -> build
 ```
+
+Obviously you can add this to e.g. your `.bashrc` to enable completions always.
 
 ## Example 2: `.jaofolder` In A Multi-Project Repo
 
@@ -171,23 +175,29 @@ For local interactive use, `jao` keeps a trust manifest under `~/.jao/`:
 - unknown scripts ask before running
 - modified scripts ask again
 
-## Install from source
+## Installation
+
+### Prebuilt binaries
+
+Download the latest binary for Linux, macOS, or Windows from [GitHub Releases](https://github.com/RoyPrinsGH/jao/releases).
+
+On Linux and macOS, place the binary on your `PATH` and mark it executable if needed:
 
 ```bash
-cargo install --path .
+chmod +x ./jao
+mv ./jao /usr/local/bin/jao
 ```
 
-During development:
+### crates.io
 
 ```bash
-cargo run -- --list
+cargo install jao
 ```
 
-## Docker
+### Docker
 
 ```bash
-docker build -t jao .
-docker run --rm -it -v "$PWD:/workspace" -w /workspace jao --list
+docker pull royprinsgh/jao:latest
 ```
 
 ## License
