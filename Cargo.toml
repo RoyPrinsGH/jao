@@ -1,10 +1,11 @@
 [package]
 name = "jao"
-version = "0.3.5"
+version = "0.3.6"
 edition = "2024"
 description = "Discover and run workspace scripts from a simple CLI"
 license = "Apache-2.0"
 readme = "README.md"
+authors = ["Roy Prins <royprinsgm@gmail.com>"]
 repository = "https://github.com/RoyPrinsGH/jao"
 documentation = "https://docs.rs/jao"
 keywords = ["cli", "scripts", "workspace", "automation", "task-runner"]
