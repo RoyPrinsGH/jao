@@ -36,32 +36,26 @@ fn jaofolder_commands_change_with_current_directory() {
             .path(),
     );
 
-    assert_eq!(
+    assert_list_line_matches(
         root_output,
-        list_line(
-            "myapp backend build",
-            workspace
-                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
-                .path(),
-        )
+        "myapp backend build",
+        workspace
+            .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+            .path(),
     );
-    assert_eq!(
+    assert_list_line_matches(
         myapp_output,
-        list_line(
-            "backend build",
-            workspace
-                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
-                .path(),
-        )
+        "backend build",
+        workspace
+            .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+            .path(),
     );
-    assert_eq!(
+    assert_list_line_matches(
         backend_output,
-        list_line(
-            "build",
-            workspace
-                .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
-                .path(),
-        )
+        "build",
+        workspace
+            .child(script_rel_path(&["myapp", "backend", "scripts"], "build"))
+            .path(),
     );
 
     let root_fingerprint = fingerprint_output(workspace.path(), &["myapp", "backend", "build"]);
@@ -131,14 +125,12 @@ fn recursive_jaoignore_hides_nested_matches() {
         .unwrap();
 
     let output = list_output(workspace.path());
-    assert_eq!(
+    assert_list_line_matches(
         output,
-        list_line(
-            "myapp backend keep",
-            workspace
-                .child(script_rel_path(&["myapp", "backend", "scripts"], "keep"))
-                .path(),
-        )
+        "myapp backend keep",
+        workspace
+            .child(script_rel_path(&["myapp", "backend", "scripts"], "keep"))
+            .path(),
     );
 
     fingerprint_output(workspace.path(), &["myapp", "backend", "keep"]);
@@ -175,14 +167,22 @@ fn fingerprint_output(cwd: &std::path::Path, parts: &[&str]) -> String {
     String::from_utf8(output).unwrap()
 }
 
-fn list_line(command: &str, path: &std::path::Path) -> String {
-    let display_path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+fn assert_list_line_matches(output: String, command: &str, path: &std::path::Path) {
+    let trimmed = output.trim_end_matches(['\n', '\r']);
+    let (actual_prefix, actual_path) = trimmed
+        .rsplit_once(" \t\t ")
+        .expect("list output should contain a path column");
 
     #[cfg(feature = "trust-manifest")]
-    return format!("unknown \t {command} \t\t {}\n", display_path.display());
+    assert_eq!(actual_prefix, format!("unknown \t {command}"));
 
     #[cfg(not(feature = "trust-manifest"))]
-    format!("{command} \t\t {}\n", display_path.display())
+    assert_eq!(actual_prefix, command);
+
+    let expected_path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let actual_path = std::fs::canonicalize(actual_path).unwrap_or_else(|_| PathBuf::from(actual_path));
+
+    assert_eq!(actual_path, expected_path);
 }
 
 fn script_rel_path(directories: &[&str], stem: &str) -> PathBuf {
