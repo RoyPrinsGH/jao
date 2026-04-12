@@ -171,7 +171,7 @@ fn __main() -> JaoResult<()> {
         return actions::complete(root, complete_args);
     }
 
-    let matches = clap_command().try_get_matches_from(&raw_args)?;
+    let matches = build_clap_parser().try_get_matches_from(&raw_args)?;
 
     let context = CliContext::from(&matches);
 
@@ -328,7 +328,7 @@ impl<'a> TryFrom<&'a ArgMatches> for CliAction<'a> {
     }
 }
 
-fn clap_command() -> Command {
+fn build_clap_parser() -> Command {
     Command::new("jao")
         .version(env!("CARGO_PKG_VERSION"))
         .disable_help_subcommand(true)
