@@ -1,6 +1,14 @@
 <p align="center">
   <img width="316" height="337" alt="Jao-Jao-Jao" src="https://github.com/user-attachments/assets/eb163b40-9283-458c-8d40-1fe94a3183f2" />
 </p>
+<p align="center">
+  <a href="https://github.com/RoyPrinsGH/jao/actions/workflows/dev.yml">
+    <img alt="Dev CI" src="https://github.com/RoyPrinsGH/jao/actions/workflows/dev.yml/badge.svg?branch=master" />
+  </a>
+  <a href="https://github.com/RoyPrinsGH/jao/actions/workflows/release.yml">
+    <img alt="Release CI" src="https://github.com/RoyPrinsGH/jao/actions/workflows/release.yml/badge.svg?branch=release" />
+  </a>
+</p>
 <br />
 
 `jao` runs scripts as if you made your own, repo specific CLI
