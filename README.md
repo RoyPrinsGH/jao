@@ -11,8 +11,7 @@
 </p>
 <br />
 
-`jao` runs scripts as if you made your own, repo specific CLI
-The name `jao` comes from the Hindi "जाओ" meaning "Go!" :D
+`jao` (from the Hindi "जाओ" meaning "Go!" :D) runs scripts as if you made your own, repo specific CLI
 
 Compared with tools like `make`, `just`, or `npm run`, `jao` is a better fit when:
 
