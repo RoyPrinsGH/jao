@@ -12,6 +12,7 @@
 <br />
 
 `jao` runs scripts as if you made your own, repo specific CLI
+The name `jao` comes from the Hindi "जाओ" meaning "Go!" :D
 
 Compared with tools like `make`, `just`, or `npm run`, `jao` is a better fit when:
 
@@ -187,14 +188,19 @@ For local interactive use, `jao` keeps a trust manifest under `~/.jao/`:
 
 ### Prebuilt binaries
 
-Download the latest binary for Linux, macOS, or Windows from [GitHub Releases](https://github.com/RoyPrinsGH/jao/releases).
+Download the latest archive for Linux, macOS, or Windows from [GitHub Releases](https://github.com/RoyPrinsGH/jao/releases).
+
+Each release from v0.3.7+ includes platform-specific archives plus a `SHA256SUMS` file.
 
 On Linux and macOS, place the binary on your `PATH` and mark it executable if needed:
 
 ```bash
+tar -xzf jao-*.tar.gz
 chmod +x ./jao
 mv ./jao /usr/local/bin/jao
 ```
+
+On Windows, extract the `.zip` archive and place `jao.exe` somewhere on your `PATH`.
 
 ### crates.io
 

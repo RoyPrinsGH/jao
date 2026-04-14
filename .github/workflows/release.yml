@@ -1,39 +1,47 @@
 name: Jao release CI
 
 on:
-  push:
-    branches:
-      - release
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  prepare-release:
+    name: prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release-metadata.outputs.release_tag }}
+      release_version: ${{ steps.release-metadata.outputs.release_version }}
+    steps:
+      - name: Checkout source commit
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            Cargo.toml
+          sparse-checkout-cone-mode: false
+
+      - name: Derive release metadata
+        id: release-metadata
+        shell: bash
+        run: |
+          release_version="$(grep '^version = "' Cargo.toml | head -n1 | cut -d'"' -f2)"
+          test -n "${release_version}"
+
+          release_tag="v${release_version}"
+
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "release_version=${release_version}" >> "${GITHUB_OUTPUT}"
+
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install cargo-hack
-        uses: taiki-e/install-action@cargo-hack
-
-      - name: Build all feature combinations
-        run: cargo hack build --locked --each-feature
-
-  test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    needs: prepare-release
     strategy:
       fail-fast: false
       matrix:
@@ -50,37 +58,125 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+
+      - name: Build all feature combinations
+        run: cargo hack build --locked --each-feature
+
       - name: Run tests
         run: cargo test --locked
 
-  docs:
-    name: docs
-    runs-on: ubuntu-latest
+  build-binaries:
+    name: build binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Generate docs
-        run: bash scripts/gen.docs.sh
+      - name: Report toolchain
+        run: |
+          rustc --version
+          cargo --version
 
-  publish-docker:
-    name: publish docker
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Detect native target triple
+        shell: bash
+        run: |
+          host_target="$(rustc -vV | awk '/^host:/ { print $2 }')"
+          test -n "${host_target}"
+          echo "HOST_TARGET=${host_target}" >> "${GITHUB_ENV}"
+
+      - name: Prepare Unix release archive
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist package
+          cp target/release/jao package/jao
+          cp README.md LICENSE NOTICE package/
+          tar -czf "dist/jao-${HOST_TARGET}.tar.gz" -C package jao README.md LICENSE NOTICE
+
+      - name: Prepare Windows release archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item "target/release/jao.exe" "package/jao.exe"
+          Copy-Item README.md, LICENSE, NOTICE package/
+          Compress-Archive -Path "package/jao.exe", "package/README.md", "package/LICENSE", "package/NOTICE" -DestinationPath "dist/jao-$env:HOST_TARGET.zip" -Force
+
+      - name: Upload release artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.os }}
+          path: dist/*
+
+  publish-release:
+    name: publish release
     runs-on: ubuntu-latest
+    environment: release
     needs:
+      - prepare-release
       - verify
-      - test
-      - docs
+      - build-binaries
     env:
       IMAGE_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Validate Docker Hub configuration
+      - name: Download archived binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-assets-*
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        shell: bash
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - name: Validate release configuration
         run: |
           test -n "${IMAGE_REPOSITORY}"
           test -n "${{ vars.DOCKERHUB_USERNAME }}"
           test -n "${{ secrets.DOCKERHUB_TOKEN }}"
+          test -n "${CARGO_REGISTRY_TOKEN}"
+
+      - name: Validate release tag availability
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git fetch origin main release --tags
+
+          if git ls-remote --exit-code --tags --refs origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            remote_tag_sha="$(git ls-remote --tags --refs origin "refs/tags/${RELEASE_TAG}" | awk '{print $1}')"
+            if [[ "${remote_tag_sha}" != "${SOURCE_SHA}" ]]; then
+              echo "Existing tag '${RELEASE_TAG}' points to ${remote_tag_sha}, expected ${SOURCE_SHA}." >&2
+              exit 1
+            fi
+          else
+            git tag "${RELEASE_TAG}" "${SOURCE_SHA}"
+            git push origin "refs/tags/${RELEASE_TAG}"
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -91,13 +187,11 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Read package version
-        id: package-version
-        shell: bash
-        run: |
-          version="$(grep '^version = "' Cargo.toml | head -n1 | cut -d'"' -f2)"
-          test -n "${version}"
-          echo "value=${version}" >> "${GITHUB_OUTPUT}"
+      - name: Package crate
+        run: cargo package --locked
+
+      - name: Publish crate
+        run: cargo publish --locked
 
       - name: Build and push latest image
         uses: docker/build-push-action@v6
@@ -107,7 +201,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_REPOSITORY }}:latest
-            ${{ env.IMAGE_REPOSITORY }}:${{ steps.package-version.outputs.value }}
+            ${{ env.IMAGE_REPOSITORY }}:${{ needs.prepare-release.outputs.release_version }}
 
       - name: Build and push latest-no-manifest image
         uses: docker/build-push-action@v6
@@ -119,23 +213,26 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_REPOSITORY }}:latest-no-manifest
-            ${{ env.IMAGE_REPOSITORY }}:${{ steps.package-version.outputs.value }}-no-manifest
+            ${{ env.IMAGE_REPOSITORY }}:${{ needs.prepare-release.outputs.release_version }}-no-manifest
 
-  publish-crate:
-    name: publish crate
-    runs-on: ubuntu-latest
-    needs:
-      - verify
-      - test
-      - docs
-    env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Update release branch
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: git push origin "${SOURCE_SHA}:refs/heads/release"
 
-      - name: Validate crates.io token
-        run: test -n "${CARGO_REGISTRY_TOKEN}"
-
-      - name: Publish crate
-        run: bash scripts/publish.sh --execute
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/* --clobber
+          else
+            gh release create "${RELEASE_TAG}" dist/* \
+              --target "${SOURCE_SHA}" \
+              --title "${RELEASE_TAG}" \
+              --generate-notes
+          fi
