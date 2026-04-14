@@ -133,6 +133,7 @@ jobs:
     env:
       IMAGE_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
       CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      RELEASE_ASSET_DIR: /tmp/jao-release-assets
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -142,14 +143,14 @@ jobs:
       - name: Download archived binaries
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: ${{ env.RELEASE_ASSET_DIR }}
           pattern: release-assets-*
           merge-multiple: true
 
       - name: Generate SHA256SUMS
         shell: bash
         run: |
-          cd dist
+          cd "${RELEASE_ASSET_DIR}"
           sha256sum * > SHA256SUMS
 
       - name: Validate release configuration
@@ -229,9 +230,9 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release upload "${RELEASE_TAG}" dist/* --clobber
+            gh release upload "${RELEASE_TAG}" "${RELEASE_ASSET_DIR}"/* --clobber
           else
-            gh release create "${RELEASE_TAG}" dist/* \
+            gh release create "${RELEASE_TAG}" "${RELEASE_ASSET_DIR}"/* \
               --target "${SOURCE_SHA}" \
               --title "${RELEASE_TAG}" \
               --generate-notes
