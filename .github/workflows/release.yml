@@ -19,7 +19,7 @@ jobs:
       release_version: ${{ steps.release-metadata.outputs.release_version }}
     steps:
       - name: Checkout source commit
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           sparse-checkout: |
@@ -51,7 +51,7 @@ jobs:
           - windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Report toolchain
         run: |
@@ -80,7 +80,7 @@ jobs:
           - windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Report toolchain
         run: |
@@ -136,7 +136,7 @@ jobs:
       RELEASE_ASSET_DIR: /tmp/jao-release-assets
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
