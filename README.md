@@ -216,3 +216,7 @@ docker pull royprinsgh/jao:latest
 ## License
 
 Apache-2.0
+
+## AI Usage
+
+Both `GPT-5.3-Codex` and `Qwen3-coder-next` were used in this project for scaffolding, refactoring work and test generation
