@@ -141,7 +141,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download archived binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ env.RELEASE_ASSET_DIR }}
           pattern: release-assets-*
