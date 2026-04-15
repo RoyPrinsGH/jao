@@ -117,7 +117,7 @@ jobs:
           Compress-Archive -Path "package/jao.exe", "package/README.md", "package/LICENSE", "package/NOTICE" -DestinationPath "dist/jao-$env:HOST_TARGET.zip" -Force
 
       - name: Upload release artifact bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-assets-${{ matrix.os }}
           path: dist/*
