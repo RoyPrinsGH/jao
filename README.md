@@ -3,7 +3,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/RoyPrinsGH/jao/actions/workflows/dev.yml">
-    <img alt="Dev CI" src="https://github.com/RoyPrinsGH/jao/actions/workflows/dev.yml/badge.svg?branch=master" />
+    <img alt="Dev CI" src="https://github.com/RoyPrinsGH/jao/actions/workflows/dev.yml/badge.svg?branch=main" />
   </a>
   <a href="https://github.com/RoyPrinsGH/jao/actions/workflows/release.yml">
     <img alt="Release CI" src="https://github.com/RoyPrinsGH/jao/actions/workflows/release.yml/badge.svg?branch=release" />
