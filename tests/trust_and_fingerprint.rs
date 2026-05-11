@@ -100,7 +100,12 @@ fn ci_run_passes_trailing_flag_arguments_to_script() {
         .stdout
         .clone();
 
-    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "--arg|value");
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "--arg|value"
+    );
 }
 
 #[test]
@@ -122,7 +127,12 @@ fn ci_run_passes_positional_arguments_after_multi_part_script_name() {
         .stdout
         .clone();
 
-    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "local|verbose");
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "local|verbose"
+    );
 }
 
 #[cfg(unix)]
