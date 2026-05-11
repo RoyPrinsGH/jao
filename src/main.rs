@@ -192,13 +192,13 @@ fn __main() -> JaoResult<()> {
         }
         CliAction::Fingerprint { parts } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, parts)?;
-            actions::fingerprint_script(script_path)
+            let resolved = script_discovery::resolve_script_invocation(root, parts)?;
+            actions::fingerprint_script(resolved.script_path)
         }
         CliAction::RunFingerprinted { parts, required_fingerprint } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, parts)?;
-            actions::run_script_with_fingerprint(script_path, required_fingerprint)
+            let resolved = script_discovery::resolve_script_invocation(root, parts)?;
+            actions::run_script_with_fingerprint(resolved.script_path, &resolved.arguments, required_fingerprint)
         }
         CliAction::RunUntrusted { .. } if context.ci => Err(JaoError::CiRunRequiresFingerprint),
         #[cfg(not(feature = "trust-manifest"))]
@@ -206,10 +206,10 @@ fn __main() -> JaoResult<()> {
         #[cfg(feature = "trust-manifest")]
         CliAction::RunUntrusted { parts } => {
             let root = std::env::current_dir()?;
-            let script_path = script_discovery::resolve_script(root, parts)?;
+            let resolved = script_discovery::resolve_script_invocation(root, parts)?;
             let config = config::load_or_init()?;
             let mut trusted_manifest = trust::manifest::load_or_init(&config)?;
-            actions::run_script_with_trust(script_path, &config, &mut trusted_manifest)
+            actions::run_script_with_trust(resolved.script_path, &resolved.arguments, &config, &mut trusted_manifest)
         }
     }
 }
