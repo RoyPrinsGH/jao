@@ -38,6 +38,15 @@ pub(crate) struct DiscoveredScript<'a> {
     pub(crate) parts: ScriptParts<'a>,
 }
 
+/// Resolved script plus trailing invocation arguments.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResolvedInvocation<'a> {
+    /// Path to the resolved script file.
+    pub(crate) script_path: PathBuf,
+    /// Trailing arguments that should be forwarded to the script.
+    pub(crate) arguments: Vec<&'a OsStr>,
+}
+
 /// Callback flow-control for discovery iteration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DiscoveryFlow {
@@ -156,37 +165,70 @@ fn get_marked_folder_parts<'a>(from: impl AsRef<Path>, to: &'a Path) -> Option<S
     Some(ScriptParts { parts })
 }
 
-/// Resolves a command-part list to a script path.
+/// Resolves an invocation to the longest matching script name prefix.
 ///
-/// The input parts are joined with `.` and matched against the command name
-/// derived from `.jaofolder` ancestor directories plus the script file stem.
+/// The input words are matched against the command name derived from
+/// `.jaofolder` ancestor directories plus the script file stem.
+///
+/// When the invocation contains additional trailing words after the longest
+/// matching script name, they are returned as script arguments.
 ///
 /// Matching is case-insensitive on Windows and case-sensitive on Unix-like
 /// systems.
 ///
 /// Returns [`JaoError::ScriptNotFound`] when no discovered script matches.
-pub(crate) fn resolve_script(root: impl AsRef<Path>, parts: Vec<&OsStr>) -> JaoResult<PathBuf> {
-    let requested_parts = ScriptParts::from(parts);
-    let mut resolved_path = None;
+pub(crate) fn resolve_script_invocation<'a>(root: impl AsRef<Path>, words: Vec<&'a OsStr>) -> JaoResult<ResolvedInvocation<'a>> {
+    let requested_parts = ScriptParts::from(words.clone());
+    let mut best_match = None;
 
-    let script_found = for_each_discovered_script(root, |script| {
+    for_each_discovered_script(root, |script| {
         if script
             .parts
             .matches_exactly(&requested_parts)
         {
-            resolved_path = Some(
+            best_match = Some((
+                script
+                    .parts
+                    .len(),
+                script
+                    .path
+                    .to_path_buf(),
+            ));
+            return Ok(DiscoveryFlow::StopSearching);
+        }
+
+        if script
+            .parts
+            .is_prefix_of(&requested_parts)
+        {
+            let candidate = (
+                script
+                    .parts
+                    .len(),
                 script
                     .path
                     .to_path_buf(),
             );
-            Ok(DiscoveryFlow::StopSearching)
-        } else {
-            Ok(DiscoveryFlow::ContinueSearching)
+
+            if best_match
+                .as_ref()
+                .is_none_or(|(matched_len, _)| candidate.0 > *matched_len)
+            {
+                best_match = Some(candidate);
+            }
         }
+
+        Ok(DiscoveryFlow::ContinueSearching)
     })?;
 
-    if script_found && let Some(path) = resolved_path {
-        return Ok(path);
+    if let Some((matched_len, script_path)) = best_match {
+        return Ok(ResolvedInvocation {
+            script_path,
+            arguments: words
+                .into_iter()
+                .skip(matched_len)
+                .collect(),
+        });
     }
 
     Err(JaoError::ScriptNotFound {
@@ -246,7 +288,7 @@ impl<'a> ScriptParts<'a> {
     /// This is an exact match operation (all parts and length must match).
     pub(crate) fn matches_exactly(&self, input_parts: &ScriptParts<'_>) -> bool {
         self.parts.len() == input_parts.parts.len() 
-            && self.matches_prior(input_parts)
+            && self.is_prefix_of(input_parts)
     }
 
     /// Returns the next command part when `partial_parts` is a matching prefix.
@@ -255,7 +297,7 @@ impl<'a> ScriptParts<'a> {
     /// already-typed command prefix.
     pub(crate) fn try_get_next_part_after(&self, partial_parts: &ScriptParts<'_>) -> Option<&OsStr> {
         if self.parts.len() <= partial_parts.parts.len() 
-            || !self.matches_prior(partial_parts) {
+            || !partial_parts.is_prefix_of(self) {
             None
         }
         else {
@@ -270,18 +312,22 @@ impl<'a> ScriptParts<'a> {
         self.parts.join(OsStr::new(" "))
     }
 
-    fn matches_prior(&self, input_parts: &ScriptParts<'_>) -> bool {
-        self.parts
-            .iter()
-            .copied()
-            .take(input_parts.parts.len())
-            .zip(
-                input_parts
-                    .parts
-                    .iter()
-                    .copied(),
-            )
-            .all(|(discovered_command_part, input_part)| is_command_name_match(discovered_command_part, input_part))
+    fn is_prefix_of(&self, other: &ScriptParts<'_>) -> bool {
+        self.parts.len() <= other.parts.len()
+            && self.parts
+                .iter()
+                .copied()
+                .zip(
+                    other
+                        .parts
+                        .iter()
+                        .copied(),
+                )
+                .all(|(discovered_command_part, input_part)| is_command_name_match(discovered_command_part, input_part))
+    }
+
+    fn len(&self) -> usize {
+        self.parts.len()
     }
 
     fn concat(mut self, other: Self) -> Self {
@@ -333,5 +379,13 @@ mod tests {
         let parts = ScriptParts::from(vec![OsStr::new("myapp"), OsStr::new("backend"), OsStr::new("build")]);
 
         assert_eq!(parts.display(), OsStr::new("myapp backend build"));
+    }
+
+    #[test]
+    fn shorter_command_is_prefix_of_longer_invocation() {
+        let command = ScriptParts::from(vec![OsStr::new("build")]);
+        let invocation = ScriptParts::from(vec![OsStr::new("build"), OsStr::new("local")]);
+
+        assert!(command.is_prefix_of(&invocation));
     }
 }

@@ -20,7 +20,12 @@ use crate::{JaoError, JaoResult, trust};
 ///
 /// On acceptance, this updates the persisted trust manifest before executing
 /// the script from its own directory.
-pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoConfig, manifest: &mut TrustedManifest) -> JaoResult<()> {
+pub(crate) fn run_script_with_trust(
+    script_path: impl AsRef<Path>,
+    script_arguments: &[&OsStr],
+    config: &JaoConfig,
+    manifest: &mut TrustedManifest,
+) -> JaoResult<()> {
     let canonical_path = std::fs::canonicalize(&script_path)?;
 
     let trust_state = trust::manifest::determine_script_trust_state(&canonical_path, manifest)?;
@@ -55,7 +60,7 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoC
         }
     }
 
-    execute_script(script_path)
+    execute_script(script_path, script_arguments)
 }
 
 /// Runs a script only when its current fingerprint matches `required_fingerprint`.
@@ -64,7 +69,7 @@ pub(crate) fn run_script_with_trust(script_path: impl AsRef<Path>, config: &JaoC
 ///
 /// Fingerprint comparison uses the same canonical-path+contents hashing as
 /// trust-manifest records.
-pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, required_fingerprint: &OsStr) -> JaoResult<()> {
+pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, script_arguments: &[&OsStr], required_fingerprint: &OsStr) -> JaoResult<()> {
     let required_fingerprint = required_fingerprint
         .to_str()
         .ok_or(JaoError::InvalidArguments("required fingerprint contains invalid UTF-8"))?;
@@ -81,7 +86,7 @@ pub(crate) fn run_script_with_fingerprint(script_path: impl AsRef<Path>, require
         });
     }
 
-    execute_script(script_path)
+    execute_script(script_path, script_arguments)
 }
 
 fn normalize_required_fingerprint(fingerprint: &str) -> JaoResult<String> {
@@ -103,7 +108,7 @@ fn normalize_required_fingerprint(fingerprint: &str) -> JaoResult<String> {
     }
 }
 
-fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
+fn execute_script(script_path: impl AsRef<Path>, script_arguments: &[&OsStr]) -> JaoResult<()> {
     let script_path = script_path.as_ref();
 
     let script_dir = script_path
@@ -122,6 +127,7 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     let status = Command::new("cmd")
         .arg("/C")
         .arg(script_file)
+        .args(script_arguments)
         .current_dir(script_dir)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -131,6 +137,7 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
     #[cfg(unix)]
     let status = if is_executable(script_path)? {
         Command::new(Path::new(".").join(script_file))
+            .args(script_arguments)
             .current_dir(script_dir)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
@@ -145,6 +152,7 @@ fn execute_script(script_path: impl AsRef<Path>) -> JaoResult<()> {
 
         command
             .arg(script_file)
+            .args(script_arguments)
             .current_dir(script_dir)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())

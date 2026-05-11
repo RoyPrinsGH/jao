@@ -81,6 +81,60 @@ fn ci_run_requires_matching_fingerprint() {
         .stderr(predicates::str::contains("fingerprint mismatch"));
 }
 
+#[test]
+fn ci_run_passes_trailing_flag_arguments_to_script() {
+    let workspace = TempDir::new().unwrap();
+    let script_name = "ci-args";
+    workspace
+        .child(format!("scripts/{script_name}.{}", script_extension()))
+        .write_str(argument_echo_script_contents())
+        .unwrap();
+
+    let fingerprint = fingerprint_output(workspace.path(), None, &[script_name]);
+
+    let output = command_for(workspace.path(), None)
+        .args(["--ci", "--require-fingerprint", fingerprint.trim(), script_name, "--arg", "value"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "--arg|value"
+    );
+}
+
+#[test]
+fn ci_run_passes_positional_arguments_after_multi_part_script_name() {
+    let workspace = TempDir::new().unwrap();
+    let script_name = ["db", "reset"];
+    workspace
+        .child(format!("scripts/{}.{}", script_name.join("."), script_extension()))
+        .write_str(argument_echo_script_contents())
+        .unwrap();
+
+    let fingerprint = fingerprint_output(workspace.path(), None, &["db", "reset"]);
+
+    let output = command_for(workspace.path(), None)
+        .args(["--ci", "--require-fingerprint", fingerprint.trim(), "db", "reset", "local", "verbose"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        String::from_utf8(output)
+            .unwrap()
+            .trim_end(),
+        "local|verbose"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn ci_run_uses_complex_shebang_for_non_executable_script() {
@@ -247,5 +301,16 @@ fn script_contents(body: &str) -> String {
     #[cfg(unix)]
     {
         format!("#!/bin/sh\n{body}\n")
+    }
+}
+
+fn argument_echo_script_contents() -> &'static str {
+    #[cfg(windows)]
+    {
+        "@echo off\r\necho %~1^|%~2\r\n"
+    }
+    #[cfg(unix)]
+    {
+        "#!/bin/sh\nprintf '%s|%s\\n' \"$1\" \"$2\"\n"
     }
 }

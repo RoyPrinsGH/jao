@@ -73,6 +73,17 @@ jao db reset local
 
 This is the default model: command parts map to script stems like `check`, `test.integration`, and `db.reset.local`.
 
+Script arguments can follow the resolved command directly:
+
+```bash
+jao format --nightly
+jao test integration --filter api
+```
+
+No special separator is required. `jao` resolves the longest matching script name first, then forwards any remaining words to the script as arguments.
+
+For example, if `db.reset.local.sh` exists, `jao db reset local` runs that script. If only `db.reset.sh` exists, the same command runs `db.reset.sh` with `local` as its first argument.
+
 ## What It Does
 
 - Finds runnable scripts under the directory you start from
