@@ -16,4 +16,4 @@ while (($# > 0)); do
 	esac
 done
 
-cargo "${toolchain_args[@]}" fmt --manifest-path ../Cargo.tomlj
+cargo "${toolchain_args[@]}" fmt --manifest-path ../Cargo.toml
