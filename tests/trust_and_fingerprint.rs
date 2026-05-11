@@ -100,7 +100,7 @@ fn ci_run_passes_trailing_flag_arguments_to_script() {
         .stdout
         .clone();
 
-    assert_eq!(String::from_utf8(output).unwrap(), "--arg|value\n");
+    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "--arg|value");
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn ci_run_passes_positional_arguments_after_multi_part_script_name() {
         .stdout
         .clone();
 
-    assert_eq!(String::from_utf8(output).unwrap(), "local|verbose\n");
+    assert_eq!(String::from_utf8(output).unwrap().trim_end(), "local|verbose");
 }
 
 #[cfg(unix)]
@@ -297,7 +297,7 @@ fn script_contents(body: &str) -> String {
 fn argument_echo_script_contents() -> &'static str {
     #[cfg(windows)]
     {
-        "@echo off\r\necho %~1|%~2\r\n"
+        "@echo off\r\necho %~1^|%~2\r\n"
     }
     #[cfg(unix)]
     {
